@@ -1,0 +1,11 @@
+.env
+.idea
+*.iml
+.vscode
+*.code-workspace
+*.DS_Store
+
+/.env
+/.wp-install
+wpml-config.xml
+
