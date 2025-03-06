@@ -40,6 +40,7 @@ if (!class_exists('Multi_Wordpress_Config')) {
         private $disable_frontend;
         private $disable_themes;
         private $pods_manager;
+        private $translation_manager;
 
         private function __construct() {
             if ($this->check_dependencies()) {
@@ -135,5 +136,5 @@ if (!class_exists('Multi_Wordpress_Config')) {
         }
     }
 
-    Multi_Custom_Config::get_instance();
+    Multi_Wordpress_Config::get_instance();
 }
