@@ -28,7 +28,7 @@ if (!defined('ABSPATH')) {
  */
 if (!class_exists('Multi_Custom_Config')) {
     class Multi_Custom_Config {
-        private const VERSION = '1.0.0';
+        private const VERSION = '0.1.0';
         private const REQUIRED_PLUGINS = [
             'Pods' => 'pods/init.php',
             'Polylang' => 'polylang/polylang.php'
