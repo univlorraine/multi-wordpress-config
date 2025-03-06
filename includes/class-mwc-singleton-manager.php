@@ -5,8 +5,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-if (!class_exists('MCC_Singleton_Manager')) {
-    class MCC_Singleton_Manager
+if (!class_exists('MWC_Singleton_Manager')) {
+    class MWC_Singleton_Manager
     {
 
         public function __construct()

@@ -91,7 +91,7 @@ Vous pouvez également définir un Pod comme Singleton depuis l'interface d'admi
 ## Gestion des traductions
 Le plugin intègre la gestion des traductions via Polylang. 
 Vous pouvez définir quels champs sont traduisibles dans l'interface d'administration de Pods.
-Un menu "MCC Traductions" est disponible dans les paramètres pour rafraîchir la configuration des traductions.
+Un menu "MWC Traductions" est disponible dans les paramètres pour rafraîchir la configuration des traductions.
 
 ## Licence
 

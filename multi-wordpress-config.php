@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name: Multi Custom Config
+ * Plugin Name: Multi Wordpress Config
  * Plugin URI: https://github.com/univlorraine/multi-wordpress-config
  * Description: Plugin permettant de personnaliser l'administration WordPress pour une utilisation Headless
  * Version: 1.0.0
@@ -24,10 +24,10 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Classe principale du plugin Multi Custom Config
+ * Classe principale du plugin Multi Wordpress Config
  */
-if (!class_exists('Multi_Custom_Config')) {
-    class Multi_Custom_Config {
+if (!class_exists('Multi_Wordpress_Config')) {
+    class Multi_Wordpress_Config {
         private const VERSION = '0.1.0';
         private const REQUIRED_PLUGINS = [
             'Pods' => 'pods/init.php',
@@ -90,22 +90,22 @@ if (!class_exists('Multi_Custom_Config')) {
         }
 
         private function init_components() {
-            require_once plugin_dir_path(__FILE__) . 'includes/class-mcc-disable-defaults.php';
-            require_once plugin_dir_path(__FILE__) . 'includes/class-mcc-disable-frontend.php';
-            require_once plugin_dir_path(__FILE__) . 'includes/class-mcc-disable-themes.php';
-            require_once plugin_dir_path(__FILE__) . 'includes/class-mcc-pods-manager.php';
-            require_once plugin_dir_path(__FILE__) . 'includes/class-mcc-translation-manager.php';
+            require_once plugin_dir_path(__FILE__) . 'includes/class-mwc-disable-defaults.php';
+            require_once plugin_dir_path(__FILE__) . 'includes/class-mwc-disable-frontend.php';
+            require_once plugin_dir_path(__FILE__) . 'includes/class-mwc-disable-themes.php';
+            require_once plugin_dir_path(__FILE__) . 'includes/class-mwc-pods-manager.php';
+            require_once plugin_dir_path(__FILE__) . 'includes/class-mwc-translation-manager.php';
 
             // Désactiver les types par défaut de WordPress (post, page, comment)
-            $this->disable_defaults = new MCC_Disable_Defaults();
+            $this->disable_defaults = new MWC_Disable_Defaults();
             // Désactiver toute la partie Frontend
-            $this->disable_frontend = new MCC_Disable_Frontend();
+            $this->disable_frontend = new MWC_Disable_Frontend();
             // Désactiver les thèmes et le gestionnaire dans l'admin
-            $this->disable_themes = new MCC_Disable_Themes();
+            $this->disable_themes = new MWC_Disable_Themes();
             // Création automatique des CPT (Custom Post Types) nécessaires au projet Multi
-            $this->pods_manager = new MCC_Pods_Manager();
+            $this->pods_manager = new MWC_Pods_Manager();
             // Gestion de la traduction des CPT Pods par Polylang
-            $this->translation_manager = new MCC_Translation_Manager();
+            $this->translation_manager = new MWC_Translation_Manager();
         }
 
         public function activate() {
@@ -113,9 +113,9 @@ if (!class_exists('Multi_Custom_Config')) {
                 $this->disable_defaults->disable_core_types();
             }
 
-            if (get_option('mcc_pods_created') !== 'yes' && $this->pods_manager) {
+            if (get_option('mwc_pods_created') !== 'yes' && $this->pods_manager) {
                 $this->pods_manager->create_default_pods();
-                update_option('mcc_pods_created', 'yes');
+                update_option('mwc_pods_created', 'yes');
             }
 
             flush_rewrite_rules();
@@ -129,7 +129,7 @@ if (!class_exists('Multi_Custom_Config')) {
             if ($this->pods_manager) {
                 $this->pods_manager->delete_all_pods();
             }
-            delete_option('mcc_pods_created');
+            delete_option('mwc_pods_created');
 
             flush_rewrite_rules();
         }

@@ -5,8 +5,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-if (!class_exists('MCC_Translation_Manager')) {
-    class MCC_Translation_Manager
+if (!class_exists('MWC_Translation_Manager')) {
+    class MWC_Translation_Manager
     {
         private static $isProcessingTrash = false;
         private static $isProcessingUntrash = false;
@@ -35,19 +35,19 @@ if (!class_exists('MCC_Translation_Manager')) {
             add_action('admin_menu', function () {
                 add_submenu_page(
                     'options-general.php',
-                    'MCC Traductions',
-                    'MCC Traductions',
+                    'MWC Traductions',
+                    'MWC Traductions',
                     'manage_options',
-                    'mcc-translation-settings',
+                    'mwc-translation-settings',
                     function () {
-                        echo '<div class="wrap"><h1>MCC Traductions</h1>';
+                        echo '<div class="wrap"><h1>MWC Traductions</h1>';
                         echo '<form method="post" action="">';
-                        echo '<input type="hidden" name="mcc_clear_cache" value="1">';
+                        echo '<input type="hidden" name="mwc_clear_cache" value="1">';
                         submit_button('Rafraîchir la configuration');
                         echo '</form></div>';
 
-                        if (isset($_POST['mcc_clear_cache'])) {
-                            (new MCC_Translation_Manager())->clear_translation_config_cache();
+                        if (isset($_POST['mwc_clear_cache'])) {
+                            (new MWC_Translation_Manager())->clear_translation_config_cache();
                             echo '<div class="updated"><p>Cache des traductions vidé.</p></div>';
                         }
                     }
@@ -104,9 +104,9 @@ if (!class_exists('MCC_Translation_Manager')) {
                         ];
 
                         // Récupère l'ancienne configuration pour vérifier si elle a changé
-                        $config = get_transient('_mcc_translation_config_cache');
+                        $config = get_transient('_mwc_translation_config_cache');
                         if (!$config) {
-                            $config = get_option('_mcc_translation_config', [
+                            $config = get_option('_mwc_translation_config', [
                                 'pods' => [],
                                 'fields' => []
                             ]);
@@ -231,10 +231,10 @@ if (!class_exists('MCC_Translation_Manager')) {
          */
         private function update_translation_config($field_data) {
             // Récupère la configuration existante
-            $config = get_transient('_mcc_translation_config_cache');
+            $config = get_transient('_mwc_translation_config_cache');
 
             if (!$config) {
-                $config = get_option('_mcc_translation_config', [
+                $config = get_option('_mwc_translation_config', [
                     'pods' => [],
                     'fields' => [],
                     'all_pod_fields' => [] // Nouvelle section pour stocker tous les champs
@@ -295,8 +295,8 @@ if (!class_exists('MCC_Translation_Manager')) {
             $config['all_pod_fields'] = $all_pod_fields;
 
             // Sauvegarde la configuration
-            update_option('_mcc_translation_config', $config);
-            set_transient('_mcc_translation_config_cache', $config, 3600); // Met à jour le cache
+            update_option('_mwc_translation_config', $config);
+            set_transient('_mwc_translation_config_cache', $config, 3600); // Met à jour le cache
 
             return $config;
         }
@@ -306,10 +306,10 @@ if (!class_exists('MCC_Translation_Manager')) {
          */
         public function clear_translation_config_cache() {
             // Supprime simplement le cache transient
-            delete_transient('_mcc_translation_config_cache');
+            delete_transient('_mwc_translation_config_cache');
 
             // Récupère la configuration existante depuis les options
-            $config = get_option('_mcc_translation_config', [
+            $config = get_option('_mwc_translation_config', [
                 'pods' => [],
                 'fields' => [],
                 'all_pod_fields' => []
@@ -331,10 +331,10 @@ if (!class_exists('MCC_Translation_Manager')) {
         private function generate_wpml_config($config = null) {
             // Si la configuration n'est pas fournie, on la récupère
             if ($config === null) {
-                $config = get_transient('_mcc_translation_config_cache');
+                $config = get_transient('_mwc_translation_config_cache');
 
                 if (!$config) {
-                    $config = get_option('_mcc_translation_config', [
+                    $config = get_option('_mwc_translation_config', [
                         'pods' => [],
                         'fields' => [],
                         'all_pod_fields' => []
@@ -404,7 +404,7 @@ if (!class_exists('MCC_Translation_Manager')) {
          * Récupère la liste des champs Pods traduisibles depuis la configuration.
          */
         private function get_translatable_fields() {
-            $config = get_option('_mcc_translation_config', []);
+            $config = get_option('_mwc_translation_config', []);
             $translatable_fields = [];
 
             if (isset($config['fields'])) {

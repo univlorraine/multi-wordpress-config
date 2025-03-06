@@ -8,8 +8,8 @@ if (!defined('ABSPATH')) {
 /**
  * Classe gérant la désactivation du frontend de WordPress
  */
-if (!class_exists('MCC_Disable_Frontend')) {
-    class MCC_Disable_Frontend {
+if (!class_exists('MWC_Disable_Frontend')) {
+    class MWC_Disable_Frontend {
         /**
          * Liste des chemins protégés qui ne seront pas redirigés
          */

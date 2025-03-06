@@ -8,8 +8,8 @@ if (!defined('ABSPATH')) {
 /**
  * Classe gérant la désactivation des types de contenu par défaut
  */
-if (!class_exists('MCC_Disable_Defaults')) {
-    class MCC_Disable_Defaults {
+if (!class_exists('MWC_Disable_Defaults')) {
+    class MWC_Disable_Defaults {
         private const DISABLED_TYPES = ['post', 'page', 'comment'];
         private const DISABLED_TAXONOMIES = ['category', 'post_tag'];
         private const DISABLED_FEATURES = [

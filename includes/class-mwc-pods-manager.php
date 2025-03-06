@@ -5,10 +5,10 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-require_once plugin_dir_path(__FILE__) . 'class-mcc-singleton-manager.php';
+require_once plugin_dir_path(__FILE__) . 'class-mwc-singleton-manager.php';
 
-if (!class_exists('MCC_Pods_Manager')) {
-    class MCC_Pods_Manager {
+if (!class_exists('MWC_Pods_Manager')) {
+    class MWC_Pods_Manager {
         private $pods_config = [];
         private $pods_dir;
         private $singleton_manager;
@@ -16,7 +16,7 @@ if (!class_exists('MCC_Pods_Manager')) {
         public function __construct() {
             $this->pods_dir = plugin_dir_path(__FILE__) . 'pods/';
             $this->load_pods_config();
-            $this->singleton_manager = new MCC_Singleton_Manager();
+            $this->singleton_manager = new MWC_Singleton_Manager();
             $this->init_hooks();
         }
 
@@ -176,14 +176,14 @@ if (!class_exists('MCC_Pods_Manager')) {
                                     try {
                                         $api->save_field($field_args);
                                     } catch (Exception $e) {
-                                        error_log('MCC Debug - Erreur création champ : ' . $e->getMessage());
+                                        error_log('MWC Debug - Erreur création champ : ' . $e->getMessage());
                                     }
                                 }
                             }
                         }
                     }
                 } catch (Exception $e) {
-                    error_log('MCC Debug - Erreur lors de la création du pod : ' . $e->getMessage());
+                    error_log('MWC Debug - Erreur lors de la création du pod : ' . $e->getMessage());
                 }
             }
 

@@ -2,15 +2,15 @@
 /**
  * Classe pour désactiver les thèmes et leur gestion dans l'administration WordPress
  *
- * @package Multi_Custom_Config
+ * @package Multi_Wordpress_Config
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
-if (!class_exists('MCC_Disable_Themes')) {
-    class MCC_Disable_Themes {
+if (!class_exists('MWC_Disable_Themes')) {
+    class MWC_Disable_Themes {
 
         private const RESTRICTED_PAGES = [
             'themes.php',
