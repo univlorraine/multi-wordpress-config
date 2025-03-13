@@ -81,12 +81,13 @@ if (!class_exists('MWC_Pods_Manager')) {
                 try {
                     $pod_args = [
                         // Paramètres de base
-                        'storage' => 'meta',                                // Type de stockage des données (meta, table, etc.)
-                        'name' => $pod_name,                                // Nom système du pod (Requis)
-                        'label' => $pod_config['label'],                    // Nom affiché du pod dans l'admin
-                        'label_singular' => $pod_config['label_singular'],  // Nom affiché au singulier
-                        'type' => 'post_type',                              // Type de contenu (post_type, taxonomy, user, media, etc.)
-                        'description' => $pod_config['description'],        // Description du pod
+                        'storage' => 'meta',                                           // Type de stockage des données (meta, table, etc.)
+                        'name' => $pod_name,                                           // Nom système du pod (Requis)
+                        'label' => $pod_config['label'],                               // Nom affiché du pod dans l'admin
+                        'label_singular' => $pod_config['label_singular'],             // Nom affiché au singulier
+                        'label_add_new_item' => $pod_config['label_add_new'] ?? '',    // Nom du bouton d'ajout
+                        'type' => 'post_type',                                         // Type de contenu (post_type, taxonomy, user, media, etc.)
+                        'description' => $pod_config['description'],                   // Description du pod
 
                         // Paramètres d'interface
                         'public' => true,                                   // true car on veut que le pod soit accessible via API
@@ -110,8 +111,10 @@ if (!class_exists('MWC_Pods_Manager')) {
                         'rest_enable' => true,                          // true pour activer REST dans le plugin Pods
 
                         // Paramètres GraphQL
-                        'show_in_graphql' => true,                      // true pour activer l'API GraphQL
-                        'wpgraphql_enabled' => true,                    // true pour activer GraphQL dans le plugin Pods
+                        'show_in_graphql' => true,                                                  // true pour activer l'API GraphQL
+                        'wpgraphql_enabled' => true,                                                // true pour activer GraphQL dans le plugin Pods
+                        'wpgraphql_singular_name' => $pod_config['graphql_singular_name'] ?? '',    // Nom singulier du pod pour GraphQL
+                        'wpgraphql_plural_name' => $pod_config['graphql_plural_name'] ?? '',        // Nom pluriel du pod pour GraphQL
 
                         // Options avancées de Pods
                         'supports_title' => false,                      // false pour désactiver le titre (car dissocié du reste du formulaire d'édition)
