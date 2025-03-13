@@ -63,43 +63,57 @@ if (!class_exists('MWC_Singleton_Manager')) {
                 return;
             }
 
-            // Gestion de la traduction d'un singleton par Polylang
+            // Vérification si une traduction est en cours (Polylang)
             if (!empty($_GET['from_post']) && !empty($_GET['new_lang'])) {
                 return;
             }
 
+            // Récupère le post_type actuel depuis la requête
+            $current_post_type = $_GET['post_type'] ?? null;
+
+            // Si aucun post_type ou si on est déjà sur une page d'édition ou action spécifique
+            if (empty($current_post_type) || isset($_GET['post']) || (isset($_GET['action']) && $_GET['action'] !== 'edit')) {
+                return;
+            }
+
+            // Récupération des pods seulement si nécessaire
             $api = pods_api();
             $all_pods = $api->load_pods();
 
             foreach ($all_pods as $pod) {
-                if (!$this->is_pod_singleton($pod)) {
+                // Vérifie si ce pod est celui demandé et s'il est défini comme singleton
+                if ($pod['name'] !== $current_post_type || !$this->is_pod_singleton($pod)) {
                     continue;
                 }
 
+                // Vérifie si le post type est valide avant toute requête
                 if (empty($pod['name']) || get_post_type_object($pod['name']) === null) {
                     continue;
                 }
 
+                // Recherche une instance existante
                 $singleton_query = new \WP_Query([
-                    'post_type' => $pod['name'],
+                    'post_type'      => $pod['name'],
                     'posts_per_page' => 1,
+                    'no_found_rows'  => true, // Optimisation de la requête
+                    'fields'         => 'ids', // Récupère uniquement les IDs pour plus d'efficacité
                 ]);
 
                 if ($singleton_query->have_posts()) {
-                    $singleton_query->the_post();
-                    $post_id = get_the_ID();
-                    wp_reset_postdata();
+                    // Utilise le premier ID trouvé
+                    $post_id = $singleton_query->posts[0];
 
-                    if (isset($_GET['post_type']) && $_GET['post_type'] === $pod['name'] && !isset($_GET['post']) && !isset($_GET['action'])) {
-                        wp_redirect(admin_url('post.php?post=' . $post_id . '&action=edit'));
-                        exit;
-                    }
+                    // Redirection vers la page d'édition
+                    wp_redirect(admin_url('post.php?post=' . $post_id . '&action=edit'));
+                    exit;
                 } else {
+                    // Crée une nouvelle instance si aucune n'existe
                     $new_post = [
-                        'post_type' => $pod['name'],
+                        'post_type'   => $pod['name'],
                         'post_status' => 'publish',
-                        'post_title' => 'Instance unique de ' . $pod['name']
+                        'post_title'  => 'Instance unique de ' . ($pod['label_singular'] ?? $pod['name'])
                     ];
+
                     $post_id = wp_insert_post($new_post);
 
                     if (!is_wp_error($post_id)) {
@@ -107,6 +121,9 @@ if (!class_exists('MWC_Singleton_Manager')) {
                         exit;
                     }
                 }
+
+                // Une fois que nous avons traité le pod correspondant, nous pouvons sortir
+                break;
             }
         }
 
