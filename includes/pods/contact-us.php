@@ -22,7 +22,7 @@ return [
             'fields' => [
                 $pod_name . '_title' => [
                     'type' => 'text',
-                    'label' => 'Titre de formulire',
+                    'label' => 'Titre de formulaire',
                     'description' => 'Titre de la page de contact (affiché dans le menu).',
                     'required' => true,
                 ],
