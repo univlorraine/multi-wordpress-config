@@ -12,6 +12,7 @@ Il désactive les fonctionnalités orientées front-end de WordPress et met en p
 * Désactivation complète du front-end WordPress
 * Désactivation des types de contenu par défaut de WordPress (posts, pages, commentaires)
 * Suppression de la gestion des thèmes
+* Redirection de la gestion des médias vers un serveur Nginx si configuré
 * Création automatique de Custom Post Types (CPT) et Custom Fields via Pods
 * Support des pods "Singleton" (instances uniques)
 * Gestion avancée des traductions avec Polylang
@@ -87,6 +88,10 @@ Utile pour les pages de configuration ou les contenus uniques.
 
 Pour définir un Pod en tant que singleton, définissez 'singleton' => true dans sa configuration.
 Vous pouvez également définir un Pod comme Singleton depuis l'interface d'administration de Pods
+
+## Rediriger la gestion des médias vers un serveur Nginx
+Si vous utilisez un serveur Nginx pour délivrer les médias de manière statique, vous pouvez activer la redirection de la gestion des médias vers le serveur Nginx.
+Pour cela, il suffit de définir une variable d'environnement `NGINX_UPLOADS_PROXY=`
 
 ## Gestion des traductions
 Le plugin intègre la gestion des traductions via Polylang. 
