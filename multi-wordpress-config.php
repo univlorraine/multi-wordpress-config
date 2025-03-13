@@ -39,6 +39,7 @@ if (!class_exists('Multi_Wordpress_Config')) {
         private $disable_defaults;
         private $disable_frontend;
         private $disable_themes;
+        private $medias_manager;
         private $pods_manager;
         private $translation_manager;
 
@@ -94,6 +95,7 @@ if (!class_exists('Multi_Wordpress_Config')) {
             require_once plugin_dir_path(__FILE__) . 'includes/class-mwc-disable-defaults.php';
             require_once plugin_dir_path(__FILE__) . 'includes/class-mwc-disable-frontend.php';
             require_once plugin_dir_path(__FILE__) . 'includes/class-mwc-disable-themes.php';
+            require_once plugin_dir_path(__FILE__) . 'includes/class-mwc-medias-manager.php';
             require_once plugin_dir_path(__FILE__) . 'includes/class-mwc-pods-manager.php';
             require_once plugin_dir_path(__FILE__) . 'includes/class-mwc-translation-manager.php';
 
@@ -103,6 +105,8 @@ if (!class_exists('Multi_Wordpress_Config')) {
             $this->disable_frontend = new MWC_Disable_Frontend();
             // Désactiver les thèmes et le gestionnaire dans l'admin
             $this->disable_themes = new MWC_Disable_Themes();
+            // Réécrire l'url des assets vers le serveur Nginx
+            $this->medias_manager = new MWC_Medias_Manager();
             // Création automatique des CPT (Custom Post Types) nécessaires au projet Multi
             $this->pods_manager = new MWC_Pods_Manager();
             // Gestion de la traduction des CPT Pods par Polylang
