@@ -9,17 +9,22 @@ $pod_name = 'static_pages';
 $pod_singular_name = 'static_page';
 
 return [
-    'name' => $pod_name,
-    'label' => 'Pages statiques',
-    'label_singular' => 'Page statique',
-    'label_add_new' => 'Nouvelle page statique',
-    'description' => 'Pages statiques de l\'application Multi',
-    'menu-position' => 4,
-    'menu-icon' => 'dashicons-admin-page',
-    'title_field' => $pod_singular_name . '_title', // Indique quel champ sera utilisé comme titre dans l'interface d'administration (autrement affiche 'brouillon')
-    'graphql_singular_name' => $pod_singular_name,
-    'graphql_plural_name' => $pod_name,
-    'groups' => [
+    'pod_config' => [
+        'name' => $pod_name,
+        'label' => 'Pages statiques',
+        'label_singular' => 'Page statique',
+        'label_add_new_item' => 'Nouvelle page statique',
+        'description' => 'Pages statiques de l\'application Multi',
+        'menu_position' => 4,
+        'menu_icon' => 'dashicons-admin-page',
+        'wpgraphql_singular_name' => $pod_singular_name,
+        'wpgraphql_plural_name' => $pod_name,
+        'options' => [
+            'singleton' => false,
+            'title_field' => $pod_singular_name . '_title', // Indique quel champ sera utilisé comme titre dans l'interface d'administration (autrement affiche 'brouillon')
+        ]
+    ],
+    'pod_fields' => [
         $pod_singular_name . '_fields' => [
             'label' => 'Champs Page statique',
             'fields' => [
@@ -53,7 +58,7 @@ return [
                     'required' => false,
                     'description' => 'Code SVG de l\'icône à afficher pour le thème sombre.',
                 ],
-                $pod_singular_name . '_statistic_page' => [
+                $pod_singular_name . '_statistic_name' => [
                     'type' => 'text',
                     'label' => 'Identifiant de la statistique',
                     'required' => false,

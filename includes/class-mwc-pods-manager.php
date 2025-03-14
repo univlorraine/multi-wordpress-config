@@ -36,10 +36,10 @@ if (!class_exists('MWC_Pods_Manager')) {
             }
 
             foreach (glob($this->pods_dir . '*.php') as $pod_file) {
-                $pod_config = include_once $pod_file;
+                $pod_data = include_once $pod_file;
 
-                if (is_array($pod_config) && isset($pod_config['name'])) {
-                    $this->pods_config[$pod_config['name']] = $pod_config;
+                if (is_array($pod_data) && isset($pod_data['pod_config']) && isset($pod_data['pod_fields']) && isset($pod_data['pod_config']['name'])) {
+                    $this->pods_config[$pod_data['pod_config']['name']] = $pod_data;
                 } else {
                     error_log('Configuration de pod invalide dans le fichier : ' . $pod_file);
                 }
@@ -77,80 +77,75 @@ if (!class_exists('MWC_Pods_Manager')) {
 
             $api = pods_api();
 
-            foreach ($this->pods_config as $pod_name => $pod_config) {
+            // Paramètres par défaut pour tous les pods
+            $default_pod_args = [
+                'storage' => 'meta',                // Type de stockage des données (meta, table, etc.)
+                'type' => 'post_type',              // Type de contenu (post_type, taxonomy, user, media, etc.)
+
+                // Paramètres d'interface
+                'public' => true,                   // true car on veut que le pod soit accessible via API
+                'publicly_queryable' => false,      // false pour imposer une authentification pour accéder au pod
+                'show_ui' => true,                  // true car on veut le gérer dans l'admin
+                'show_in_menu' => true,             // true pour l'avoir dans le menu admin
+                'show_in_nav_menus' => false,       // false car pas de frontend
+                'show_in_admin_bar' => true,        // true pour un accès rapide dans la barre admin
+
+                // Paramètres d'archive et URL
+                'has_archive' => false,             // ne pas gérer les archives pour le pod (inutile en headless)
+                'rewrite' => false,                 // supprime le permalien (inutile en headless)
+                'query_var' => false,               // permet de personnaliser l'URL de requête (inutile en headless)
+
+                // Paramètres REST API
+                'show_in_rest' => true,             // true pour accès API
+                'rest_api' => true,                 // true pour activer l'API
+                'rest_enable' => true,              // true pour activer REST dans le plugin Pods
+
+                // Paramètres GraphQL
+                'show_in_graphql' => true,          // true pour activer l'API GraphQL
+                'wpgraphql_enabled' => true,        // true pour activer GraphQL dans le plugin Pods
+
+                // Options avancées de Pods
+                'supports_title' => false,          // false pour désactiver le titre (car dissocié du reste du formulaire d'édition)
+                'supports_quick_edit' => false,     // false pour désactiver l'édition rapide
+
+                // Paramètres de capacités
+                'capability_type' => 'post',        // Définit le pod comme un type de contenu de base (pour les permissions)
+                'map_meta_cap' => true,             // true pour une gestion correcte des permissions
+
+                // Paramètres d'export
+                'can_export' => true,               // Indique que les données peuvent être exportées depuis l'admin
+
+                // Paramètres de recherche
+                'exclude_from_search' => true,      // true car pas de recherche front
+
+                // Autres paramètres
+                'delete_with_user' => false,        // false pour préserver les données
+            ];
+
+            // Pour chaque config de pod présente dans le dossier pods/
+            foreach ($this->pods_config as $pod_name => $pod_data) {
                 try {
-                    $pod_args = [
-                        // Paramètres de base
-                        'storage' => 'meta',                                           // Type de stockage des données (meta, table, etc.)
-                        'name' => $pod_name,                                           // Nom système du pod (Requis)
-                        'label' => $pod_config['label'],                               // Nom affiché du pod dans l'admin
-                        'label_singular' => $pod_config['label_singular'],             // Nom affiché au singulier
-                        'label_add_new_item' => $pod_config['label_add_new'] ?? '',    // Nom du bouton d'ajout
-                        'type' => 'post_type',                                         // Type de contenu (post_type, taxonomy, user, media, etc.)
-                        'description' => $pod_config['description'],                   // Description du pod
+                    // Vérifier que les sections requises sont présentes
+                    if (!isset($pod_data['pod_config']) || !isset($pod_data['pod_fields'])) {
+                        error_log('Configuration de pod invalide: structure incorrecte');
+                        continue;
+                    }
 
-                        // Paramètres d'interface
-                        'public' => true,                                   // true car on veut que le pod soit accessible via API
-                        'publicly_queryable' => false,                      // false pour imposer une authentification pour accéder au pod
-                        'show_ui' => true,                                  // true car on veut le gérer dans l'admin
-                        'show_in_menu' => true,                             // true pour l'avoir dans le menu admin
-                        'show_in_nav_menus' => false,                       // false car pas de frontend
-                        'show_in_admin_bar' => true,                        // true pour un accès rapide dans la barre admin
-                        'menu_position' => $pod_config['menu-position'],    // position du pod dans le menu admin
-                        'menu_icon' => $pod_config['menu-icon'],            // icône du pod dans le menu admin
+                    // On fusionne les paramètres par défaut avec la config du pod
+                    $pod_args = array_merge($default_pod_args, $pod_data['pod_config']);
 
-                        // Paramètres d'archive et URL
-                        'has_archive' => false,                         // ne pas gérer les archives pour le pod (inutile en headless)
-                        'rewrite' => false,                             // supprime le permalien (inutile en headless)
-                        'query_var' => false,                           // permet de personnaliser l'URL de requête (inutile en headless)
+                    // On renseigne le nom du pod
+                    $pod_args['name'] = $pod_name;
+                    $pod_args['rest_base'] = $pod_name;
 
-                        // Paramètres REST API
-                        'show_in_rest' => true,                         // true pour accès API
-                        'rest_base' => $pod_name,                       // URL de base pour l'API
-                        'rest_api' => true,                             // true pour activer l'API
-                        'rest_enable' => true,                          // true pour activer REST dans le plugin Pods
-
-                        // Paramètres GraphQL
-                        'show_in_graphql' => true,                                                  // true pour activer l'API GraphQL
-                        'wpgraphql_enabled' => true,                                                // true pour activer GraphQL dans le plugin Pods
-                        'wpgraphql_singular_name' => $pod_config['graphql_singular_name'] ?? '',    // Nom singulier du pod pour GraphQL
-                        'wpgraphql_plural_name' => $pod_config['graphql_plural_name'] ?? '',        // Nom pluriel du pod pour GraphQL
-
-                        // Options avancées de Pods
-                        'supports_title' => false,                      // false pour désactiver le titre (car dissocié du reste du formulaire d'édition)
-                        'supports_quick_edit' => false,                 // false pour désactiver l'édition rapide
-
-                        // Paramètres de hiérarchie
-                        'hierarchical' => $pod_config['hierarchical'],  // Indique si le pod doit gérer une hiérarchie (parent / enfant) comme pour les pages statiques par exemple
-
-                        // Paramètres de capacités
-                        'capability_type' => 'post',                    // Définit le pod comme un type de contenu de base (pour les permissions)
-                        'map_meta_cap' => true,                         // true pour une gestion correcte des permissions
-
-                        // Paramètres d'export
-                        'can_export' => true,                           // Indique que les données peuvent être exportées depuis l'admin
-
-                        // Paramètres de recherche
-                        'exclude_from_search' => true,                  // true car pas de recherche front
-
-                        // Autres paramètres
-                        'delete_with_user' => false,                    // false pour préserver les données
-
-                        // Options du pod
-                        'options' => [
-                            'singleton' => $pod_config['singleton'] ?? false,
-                            'title_field' => $pod_config['title_field'] ?? 'none'
-                        ]
-
-                    ];
 
                     $pod_id = $api->save_pod($pod_args);
 
-                    if ($pod_id && !empty($pod_config['groups'])) {
+                    if ($pod_id && !empty($pod_data['pod_fields'])) {
                         pods_api()->cache_flush_pods();
 
-                        foreach ($pod_config['groups'] as $group_name => $group_config) {
-                            // Créer le groupe
+                        foreach ($pod_data['pod_fields'] as $group_name => $group_config) {
+                            // Paramètres du groupe
                             $group_args = [
                                 'pod' => $pod_name,
                                 'name' => $group_name,
@@ -160,21 +155,20 @@ if (!class_exists('MWC_Pods_Manager')) {
                             $api->save_group($group_args);
 
                             // Créer les champs
-                            if (!empty($group_config['fields'])) {
+                            if (isset($group_config['fields']) && is_array($group_config['fields'])) {
                                 foreach ($group_config['fields'] as $field_name => $field_config) {
-                                    $field_args = [
+
+                                    $default_field_args = [
                                         'pod' => $pod_name,
                                         'name' => $field_name,
-                                        'label' => $field_config['label'],
-                                        'description' => $field_config['description'],
-                                        'type' => $field_config['type'],
-                                        'required' => $field_config['required'] ?? false,
-                                        'unique' => $field_config['unique'] ?? false,
-                                        'default_value' => $field_config['default_value'] ?? null,
                                         'group' => $group_name,
                                         'show_in_graphql' => true,
-                                        'wpgraphql_enabled' => true,
+                                        'wpgraphql_enabled' => true
                                     ];
+
+                                    // Fusionner avec la configuration du champ
+                                    $field_args = array_merge($default_field_args, $field_config);
+
 
                                     try {
                                         $api->save_field($field_args);
