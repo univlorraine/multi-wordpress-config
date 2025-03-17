@@ -40,6 +40,7 @@ return [
                     'label' => 'Label',
                     'required' => true,
                     'description' => 'Label du canal de notification.',
+                    'is_translatable' => true,
                 ],
             ],
         ]

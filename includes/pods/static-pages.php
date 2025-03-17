@@ -33,12 +33,14 @@ return [
                     'label' => 'Titre',
                     'required' => true,
                     'description' => 'Titre de la page',
+                    'is_translatable' => true,
                 ],
                 $pod_singular_name . '_content' => [
                     'type' => 'wysiwyg',
                     'label' => 'Contenu',
                     'required' => true,
-                    'description' => 'Contenu de la page'
+                    'description' => 'Contenu de la page',
+                    'is_translatable' => true,
                 ],
                 $pod_singular_name . '_link_icon' => [
                     'type' => 'text',

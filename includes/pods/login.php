@@ -35,11 +35,13 @@ return [
                     'type' => 'text',
                     'label' => 'Texte non authentifié',
                     'description' => 'Phrase en page d\'accueil invitant l\'utilisateur à s\'authentifier',
+                    'is_translatable' => true,
                 ],
                 $pod_name . '_connection_text' => [
                     'type' => 'wysiwyg',
                     'label' => 'Texte de connexion',
-                    'description' => 'Texte accompagnant le formulaire d\'authentification'
+                    'description' => 'Texte accompagnant le formulaire d\'authentification',
+                    'is_translatable' => true,
                 ],
             ],
         ]

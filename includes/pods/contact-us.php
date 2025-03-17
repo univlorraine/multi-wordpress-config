@@ -36,12 +36,14 @@ return [
                     'label' => 'Titre de formulaire',
                     'description' => 'Titre de la page de contact (affiché dans le menu).',
                     'required' => true,
+                    'is_translatable' => true,
                 ],
                 $pod_name . '_content' => [
                     'type' => 'wysiwyg',
                     'label' => 'Contenu',
                     'description' => 'Texte accompagnant le formulaire de contact.',
                     'required' => true,
+                    'is_translatable' => true,
                 ],
                 $pod_name . '_to' => [
                     'type' => 'email',
