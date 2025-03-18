@@ -14,7 +14,6 @@
 // TODO:
 // - Ajouter les data de Directus dans Wordpress
 // - Tester l'import export de pods
-// - Revoir la gestion du bouton pour vider le cache des traductions dans les paramètres
 // - Repasser sur tout le plugin pour commenter correctement, vérifier que tout est ok et optimiser le code
 
 // Sécurité : empêche l'accès direct au fichier.

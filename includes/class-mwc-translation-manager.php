@@ -32,28 +32,8 @@ if (!class_exists('MWC_Translation_Manager')) {
             add_action('before_delete_post', [$this, 'delete_linked_translations']);
             add_action('untrash_post', [$this, 'restore_linked_translations']);
 
-            add_action('admin_menu', function () {
-                add_submenu_page(
-                    'options-general.php',
-                    'MWC Traductions',
-                    'MWC Traductions',
-                    'manage_options',
-                    'mwc-translation-settings',
-                    function () {
-                        echo '<div class="wrap"><h1>MWC Traductions</h1>';
-                        echo '<form method="post" action="">';
-                        echo '<input type="hidden" name="mwc_clear_cache" value="1">';
-                        submit_button('Rafraîchir la configuration');
-                        echo '</form></div>';
-
-                        if (isset($_POST['mwc_clear_cache'])) {
-                            $this->rebuild_all_translation_config();
-                            update_option('mwc_translations_initialized', 'yes');
-                            echo '<div class="updated"><p>Configuration des traductions reconstruite et cache vidé.</p></div>';
-                        }
-                    }
-                );
-            });
+            // Ajoute la page d'administration
+            add_action('admin_menu', [$this, 'add_admin_menu']);
         }
 
         /**
@@ -512,6 +492,195 @@ if (!class_exists('MWC_Translation_Manager')) {
             ];
 
             return $flags[$lang] ?? '';
+        }
+
+        /**
+         * Ajoute le menu d'administration
+         */
+        public function add_admin_menu() {
+            add_submenu_page(
+                'options-general.php',
+                'MWC Traductions',
+                'MWC Traductions',
+                'manage_options',
+                'mwc-translation-settings',
+                [$this, 'render_admin_page']
+            );
+        }
+
+        /**
+         * Génère le contenu de la page d'administration
+         */
+        public function render_admin_page() {
+            echo '<div class="wrap">';
+            echo '<h1>MWC Traductions</h1>';
+
+            $this->render_translation_status();
+
+            echo '<div class="refresh-info notice notice-info inline" style="margin: 20px 0; padding: 10px 15px; border-left-color: #2271b1;">';
+            echo '<h3 style="margin-top: 0;">"Rafraîchir la configuration" ?</h3>';
+            echo '<p>Ce bouton permet de :</p>';
+            echo '<ul style="list-style-type: disc; margin-left: 20px;">';
+            echo '<li>Scanner tous les pods et leurs champs pour détecter ceux qui sont marqués comme traduisibles</li>';
+            echo '<li>Mettre à jour le cache interne des traductions</li>';
+            echo '<li>Régénérer le fichier wpml-config.xml utilisé par Polylang pour gérer les traductions</li>';
+            echo '</ul>';
+            echo '<p><strong>Quand l\'utiliser ?</strong> Si vous avez créé de nouveaux pods ou modifié manuellement des configurations de traduction, ou si vous constatez des problèmes avec les traductions.</p>';
+            echo '</div>';
+
+            // Formulaire pour rafraîchir la configuration
+            echo '<form method="post" action="">';
+            echo '<input type="hidden" name="mwc_clear_cache" value="1">';
+            submit_button('Rafraîchir la configuration');
+            echo '</form>';
+
+            echo '</div>'; // .wrap
+
+            if (isset($_POST['mwc_clear_cache'])) {
+                $this->rebuild_all_translation_config();
+                update_option('mwc_translations_initialized', 'yes');
+                echo '<div class="updated"><p>Configuration des traductions reconstruite et cache vidé.</p></div>';
+                echo '<script>window.location.reload();</script>'; // Recharge la page pour afficher les modifications
+            }
+        }
+
+        /**
+         * Affiche la configuration actuelle des traductions
+         */
+        private function render_translation_status() {
+            // Récupère la configuration actuelle
+            $config = get_transient('_mwc_translation_config_cache');
+            if (!$config) {
+                $config = get_option('_mwc_translation_config', [
+                    'pods' => [],
+                    'fields' => [],
+                    'all_pod_fields' => []
+                ]);
+            }
+
+            // Organiser les champs par pod
+            $fields_by_pod = $this->get_fields_organized_by_pod($config);
+
+            // Afficher la configuration actuelle
+            if (!empty($fields_by_pod)) {
+                echo '<div class="translation-status" style="margin: 20px 0; max-width: 100%;">';
+                echo '<h2>Configuration actuelle des traductions</h2>';
+                echo '<p>Cette section affiche tous les pods et leur statut de traduction. Les pods qui n\'ont pas de champs traduisibles ne seront pas inclus dans le fichier WPML/Polylang.</p>';
+
+                echo '<div class="pods-accordion" style="margin-top: 20px;">';
+
+                // Pour chaque pod
+                foreach ($fields_by_pod as $pod_name => $pod_fields) {
+                    $this->render_pod_item($pod_name, $pod_fields);
+                }
+
+                echo '</div>'; // .pods-accordion
+                echo '</div>'; // .translation-status
+
+                // Ajouter le script JavaScript pour l'accordéon
+                $this->render_accordion_script();
+            } else {
+                echo '<div class="notice notice-warning"><p>Aucune configuration de traduction trouvée. Cliquez sur "Rafraîchir la configuration" pour scanner tous les pods.</p></div>';
+            }
+        }
+
+        /**
+         * Organise les champs par pod et type d'action (translate/copy)
+         *
+         * @param array $config Configuration des traductions
+         * @return array Tableau organisé des champs par pod
+         */
+        private function get_fields_organized_by_pod($config) {
+            $fields_by_pod = [];
+
+            if (isset($config['all_pod_fields']) && !empty($config['all_pod_fields'])) {
+                foreach ($config['all_pod_fields'] as $field_name => $field_data) {
+                    $pod_name = $field_data['pod'];
+
+                    if (!isset($fields_by_pod[$pod_name])) {
+                        $fields_by_pod[$pod_name] = [
+                            'translate' => [],
+                            'copy' => []
+                        ];
+                    }
+
+                    if ($field_data['action'] === 'translate') {
+                        $fields_by_pod[$pod_name]['translate'][$field_name] = $field_data;
+                    } else {
+                        $fields_by_pod[$pod_name]['copy'][$field_name] = $field_data;
+                    }
+                }
+            }
+
+            return $fields_by_pod;
+        }
+
+        /**
+         * Affiche un élément pod avec ses champs
+         *
+         * @param string $pod_name Nom du pod
+         * @param array $pod_fields Tableau des champs du pod
+         */
+        private function render_pod_item($pod_name, $pod_fields) {
+            $has_translatable = !empty($pod_fields['translate']);
+            $status_class = $has_translatable ? 'pod-translatable' : 'pod-not-translatable';
+            $status_icon = $has_translatable ? '🌐' : '⛔';
+            $status_text = $has_translatable ? 'Traduisible' : 'Non traduisible';
+
+            echo '<div class="pod-item '.$status_class.'" style="margin-bottom: 10px; border: 1px solid #ccc; border-radius: 5px; overflow: hidden;">';
+            echo '<div class="pod-header" style="padding: 10px 15px; background-color: ' . ($has_translatable ? '#e7f7f4' : '#f7f7f7') . '; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">';
+            echo '<h3 style="margin: 0; padding: 0;">' . esc_html($pod_name) . ' <span style="font-weight: normal; font-size: 14px;">(' . count($pod_fields['translate']) + count($pod_fields['copy']) . ' champs)</span></h3>';
+            echo '<span class="pod-status" style="font-size: 14px; ' . ($has_translatable ? 'color: #0073aa;' : 'color: #999;') . '">' . $status_icon . ' ' . $status_text . ' <span class="dashicons dashicons-arrow-down-alt2"></span></span>';
+            echo '</div>';
+
+            echo '<div class="pod-fields" style="display: none; padding: 15px; background-color: #fff;">';
+
+            // Section des champs traduisibles
+            if (!empty($pod_fields['translate'])) {
+                $this->render_field_list($pod_fields['translate'], 'Champs traduisibles', '🔤', '#0073aa');
+            }
+
+            // Section des champs non traduisibles
+            if (!empty($pod_fields['copy'])) {
+                $this->render_field_list($pod_fields['copy'], 'Champs non traduisibles (copiés)', '🔢', '#999', '#777');
+            }
+
+            echo '</div>'; // .pod-fields
+            echo '</div>'; // .pod-item
+        }
+
+        /**
+         * Affiche une liste de champs
+         *
+         * @param array $fields Liste des champs à afficher
+         * @param string $title Titre de la section
+         * @param string $icon Icône à afficher
+         * @param string $title_color Couleur du titre
+         * @param string $text_color Couleur du texte (optionnel)
+         */
+        private function render_field_list($fields, $title, $icon, $title_color, $text_color = '') {
+            echo '<div class="fields-list" style="margin-bottom: 15px;">';
+            echo '<h4 style="margin-top: 0; color: ' . $title_color . ';">' . $icon . ' ' . $title . '</h4>';
+            echo '<ul style="margin: 0; padding: 0 0 0 20px;' . ($text_color ? ' color: ' . $text_color . ';' : '') . '">';
+            foreach ($fields as $field_name => $field_data) {
+                echo '<li>' . esc_html($field_name) . '</li>';
+            }
+            echo '</ul>';
+            echo '</div>';
+        }
+
+        /**
+         * Génère le script JavaScript pour l'accordéon
+         */
+        private function render_accordion_script() {
+            echo '<script type="text/javascript">
+                    jQuery(document).ready(function($) {
+                        $(".pod-header").click(function() {
+                            $(this).next(".pod-fields").slideToggle("fast");
+                            $(this).find(".dashicons").toggleClass("dashicons-arrow-down-alt2 dashicons-arrow-up-alt2");
+                        });
+                    });
+                </script>';
         }
     }
 }
