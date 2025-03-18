@@ -12,7 +12,6 @@
  */
 
 // TODO:
-// - Ajouter tous les pods manquants pour compléter la collection de Directus
 // - Ajouter les data de Directus dans Wordpress
 // - Tester l'import export de pods
 // - Revoir la gestion du bouton pour vider le cache des traductions dans les paramètres
@@ -121,6 +120,11 @@ if (!class_exists('Multi_Wordpress_Config')) {
             if (get_option('mwc_pods_created') !== 'yes' && $this->pods_manager) {
                 $this->pods_manager->create_default_pods();
                 update_option('mwc_pods_created', 'yes');
+            }
+
+            if ((get_option('mwc_translations_initialized') !== 'yes') && $this->translation_manager) {
+                $this->translation_manager->init_translations();
+                update_option('mwc_translations_initialized', 'yes');
             }
 
             flush_rewrite_rules();
