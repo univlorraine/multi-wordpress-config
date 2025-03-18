@@ -231,14 +231,29 @@ if (!class_exists('MWC_Pods_Manager')) {
                 return;
             }
 
+            $title_fields = is_array($pod['options']['title_field'])
+                ? $pod['options']['title_field']
+                : [$pod['options']['title_field']];
+
             // Récupérer la valeur du champ
             $pod_object = pods($pieces['pod']['name'], $post_id);
-            $title_value = $pod_object->field($pod['options']['title_field']);
+            $title_parts = [];
 
-            if (!empty($title_value)) {
+            foreach ($title_fields as $field) {
+                $field_value = $pod_object->field($field);
+                if (!empty($field_value)) {
+                    if (is_array($field_value) && isset($field_value['post_title'])) {
+                        $field_value = $field_value['post_title'];
+                    }
+                    $title_parts[] = $field_value;
+                }
+            }
+
+            if (!empty($title_parts)) {
+                $new_title = implode(' : ', $title_parts);
                 wp_update_post([
                     'ID' => $post_id,
-                    'post_title' => $title_value
+                    'post_title' => $new_title
                 ]);
             }
         }
