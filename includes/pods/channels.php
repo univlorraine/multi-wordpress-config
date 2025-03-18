@@ -42,6 +42,34 @@ return [
                     'description' => 'Label du canal de notification.',
                     'is_translatable' => true,
                 ],
+                $pod_singular_name . '_router_link' => [
+                    'type' => 'text',
+                    'label' => 'Router link',
+                    'required' => false,
+                    'description' => 'Chemin vers la route Ionic du service interne vers laquelle rediriger l\'utilisateur lorsqu\'il clique sur une notification associée à ce canal (exemple : /schedule).',
+                ],
+                $pod_singular_name . '_color' => [
+                    'type' => 'color',
+                    'label' => 'Couleur',
+                    'required' => false,
+                    'description' => 'Couleur de thème associée au canal de notification.',
+                ],
+                $pod_singular_name . '_icon' => [
+                    'type' => 'text',
+                    'label' => 'Icône',
+                    'required' => false,
+                    'description' => 'Nom \'ion-icon\' de l\'icône associée au canal de notification.',
+                ],
+                $pod_singular_name . '_filterable' => [
+                    'type' => 'boolean',
+                    'label' => 'Filtrable',
+                    'required' => false,
+                    'description' => 'Indique si les notifications liées à ce canal peuvent être filtrées à l\'affichage par l\'utilisateur ou non.',
+                    'boolean_format_type' => 'radio',
+                    'boolean_yes_label' => 'Oui',
+                    'boolean_no_label' => 'Non',
+                    'default_value' => '1',
+                ],
             ],
         ]
     ]
