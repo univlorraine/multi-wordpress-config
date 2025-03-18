@@ -85,7 +85,7 @@ return [
                         'logic' => 'all',
                         'rules' => [
                             [
-                                'field' => 'important_new_access_restriction',
+                                'field' => $pod_singular_name . '_access_restriction',
                                 'compare' => '=',
                                 'value' => 'NONE',
                             ]
