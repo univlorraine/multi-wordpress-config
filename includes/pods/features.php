@@ -111,7 +111,7 @@ return [
                     'type' => 'pick',
                     'label' => 'Rôles',
                     'required' => false,
-                    'description' => 'Rôles autorisés ou interdits d\'accès à l\'information importante.',
+                    'description' => 'Rôles autorisés ou interdits d\'accès au service.',
                     'pick_object' => 'post_type',
                     'pick_format_type' => 'multi',
                     'pick_format_multi' => 'autocomplete',
@@ -132,6 +132,13 @@ return [
                     'pick_taggable' => '1',
                 ],
                 $pod_singular_name . '_position' => [
+                    'type' => 'number',
+                    'label' => 'Ordre d\'affichage',
+                    'required' => false,
+                    'description' => 'Position lors de l\'affichage.',
+                    'default_value' => 0,
+                ],
+                $pod_singular_name . '_positions_by_role' => [
                     'type' => 'pick',
                     'label' => 'Ordre d\'affichage',
                     'required' => false,
