@@ -15,7 +15,7 @@ return [
         'label_singular' => 'Widget',
         'label_add_new_item' => 'Nouveau widget',
         'description' => 'Widgets de l\'application Multi',
-        'menu_position' => 1,
+        'menu_position' => 11,
         'menu_icon' => 'dashicons-excerpt-view',
         'wpgraphql_singular_name' => $pod_singular_name,
         'wpgraphql_plural_name' => $pod_name,

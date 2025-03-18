@@ -15,7 +15,7 @@ return [
         'label_singular' => 'Service',
         'label_add_new_item' => 'Nouveau service',
         'description' => 'Services de l\'application Multi',
-        'menu_position' => 2,
+        'menu_position' => 12,
         'menu_icon' => 'dashicons-screenoptions',
         'wpgraphql_singular_name' => $pod_singular_name,
         'wpgraphql_plural_name' => $pod_name,

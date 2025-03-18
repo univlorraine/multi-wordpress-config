@@ -15,7 +15,7 @@ return [
         'label_singular' => 'Rôle',
         'label_add_new_item' => 'Nouveau rôle',
         'description' => 'Rôles des utilisateur dans l\'application Multi',
-        'menu_position' => 9,
+        'menu_position' => 57,
         'menu_icon' => 'dashicons-universal-access',
         'wpgraphql_singular_name' => $pod_singular_name,
         'wpgraphql_plural_name' => $pod_name,

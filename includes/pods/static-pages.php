@@ -15,7 +15,7 @@ return [
         'label_singular' => 'Page statique',
         'label_add_new_item' => 'Nouvelle page statique',
         'description' => 'Pages statiques de l\'application Multi',
-        'menu_position' => 4,
+        'menu_position' => 14,
         'menu_icon' => 'dashicons-admin-page',
         'wpgraphql_singular_name' => $pod_singular_name,
         'wpgraphql_plural_name' => $pod_name,

@@ -15,7 +15,7 @@ return [
         'label_singular' => 'Canal de notification',
         'label_add_new_item' => 'Nouveau canal de notification',
         'description' => 'Canaux de notifications de l\'application Multi',
-        'menu_position' => 6,
+        'menu_position' => 16,
         'menu_icon' => 'dashicons-megaphone',
         'wpgraphql_singular_name' => $pod_singular_name,
         'wpgraphql_plural_name' => $pod_name,

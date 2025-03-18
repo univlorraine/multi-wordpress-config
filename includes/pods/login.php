@@ -18,7 +18,7 @@ return [
         'label_singular' => 'Page de login',
         //    'label_add_new_item' => 'Nouvelle page de login', // Inutile car le pod est un singleton
         'description' => 'Page de login de l\'application Multi',
-        'menu_position' => 7,
+        'menu_position' => 56,
         'menu_icon' => 'dashicons-id',
         'wpgraphql_singular_name' => 'login_one', // Obligé de nommer le champ mais on ne l'utilise pas car le pod est un singleton
         'wpgraphql_plural_name' => $pod_name,

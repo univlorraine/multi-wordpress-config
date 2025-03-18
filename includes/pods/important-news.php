@@ -15,7 +15,7 @@ return [
         'label_singular' => 'Information importante',
         'label_add_new_item' => 'Nouvelle information importante',
         'description' => 'Informations importantes de l\'application Multi',
-        'menu_position' => 3,
+        'menu_position' => 13,
         'menu_icon' => 'dashicons-clipboard',
         'wpgraphql_singular_name' => $pod_singular_name,
         'wpgraphql_plural_name' => $pod_name,
