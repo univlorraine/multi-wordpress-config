@@ -47,6 +47,7 @@ return [
                     'label' => 'Label du bouton',
                     'required' => false,
                     'description' => 'Label de l\'éventuel bouton permettant de rediriger l\'utilisateur vers un service lié à l\'information (exemple: En savoir plus).',
+                    'is_translatable' => true,
                 ],
                 $pod_singular_name . '_image' => [
                     'type' => 'file',
@@ -106,7 +107,7 @@ return [
                     'required' => false,
                     'description' => 'Lien du service vers lequel rediriger l\'utilisateur lorsqu\'il clique sur le bouton associé.',
                 ],
-                $pod_singular_name . 'statistic_name' => [
+                $pod_singular_name . '_statistic_name' => [
                     'type' => 'text',
                     'label' => 'Identifiant de la statistique',
                     'required' => false,
