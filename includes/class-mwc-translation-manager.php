@@ -151,22 +151,14 @@ if (!class_exists('MWC_Translation_Manager')) {
                     $pod = pods_api()->load_pod(['id' => $params['pod_id']]);
 
                     if ($pod) {
-                        error_log('MWC Debug - Mise à jour de la configuration de traduction pour le pod: ' . $pod['name']);
+                        $field_name = $params['name'];
+                        $is_translatable = !empty($params['args']['is_translatable']);
 
-                        // On met à jour la configuration de tout le pod
-                        $this->update_pod_translation_config($pod['name']);
+                        error_log("******** DEBUG ******** le champ $field_name est traduisible ? $is_translatable");
+
+                        // On met à jour la configuration avec la nouvelle valeur du champ
+                        $this->update_field_translation_config($pod['name'], $field_name, $is_translatable);
                     }
-                }
-            } else if (preg_match('#^/pods/v1/pods/(\d+)$#', $route, $matches) && $request->get_method() === 'POST') {
-                // Gestion des modifications de pod
-                $pod_id = $matches[1];
-                $pod = pods_api()->load_pod(['id' => $pod_id]);
-
-                if ($pod) {
-                    error_log('MWC Debug - Mise à jour de la configuration de traduction pour le pod modifié: ' . $pod['name']);
-
-                    // On met à jour la configuration de tout le pod
-                    $this->update_pod_translation_config($pod['name']);
                 }
             }
 
@@ -174,14 +166,16 @@ if (!class_exists('MWC_Translation_Manager')) {
         }
 
         /**
-         * Met à jour la configuration des traductions pour un pod spécifique
+         * Met à jour la configuration de traduction pour un champ spécifique
          *
-         * @param string $pod_name Nom du pod à mettre à jour
+         * @param string $pod_name Nom du pod
+         * @param string $field_name Nom du champ
+         * @param bool $is_translatable Indique si le champ est traduisible
+         * @return array Configuration mise à jour
          */
-        private function update_pod_translation_config($pod_name) {
+        private function update_field_translation_config($pod_name, $field_name, $is_translatable) {
             // Récupère la configuration existante
             $config = get_transient('_mwc_translation_config_cache');
-
             if (!$config) {
                 $config = get_option('_mwc_translation_config', [
                     'pods' => [],
@@ -190,38 +184,25 @@ if (!class_exists('MWC_Translation_Manager')) {
                 ]);
             }
 
-            // Récupère les informations sur le pod
-            $pod = pods_api()->load_pod(['name' => $pod_name]);
+            // Met à jour la configuration pour ce champ spécifique
+            $config['fields'][$field_name] = [
+                'pod' => $pod_name,
+                'translatable' => $is_translatable
+            ];
 
-            if (!$pod) {
-                return $config;
-            }
+            $config['all_pod_fields'][$field_name] = [
+                'pod' => $pod_name,
+                'translatable' => $is_translatable,
+                'action' => $is_translatable ? 'translate' : 'copy'
+            ];
 
+            // Vérifie si le pod a au moins un champ traduisible
             $pod_has_translatable = false;
 
-            // Parcourt tous les champs du pod et met à jour la configuration
-            if (isset($pod['fields']) && !empty($pod['fields'])) {
-                foreach ($pod['fields'] as $field) {
-                    $field_name = $field['name'];
-                    $is_translatable = !empty($field['options']['is_translatable']);
-
-                    // Met à jour la configuration du champ
-                    $config['fields'][$field_name] = [
-                        'pod' => $pod_name,
-                        'translatable' => $is_translatable
-                    ];
-
-                    // Met à jour dans la liste complète
-                    $config['all_pod_fields'][$field_name] = [
-                        'pod' => $pod_name,
-                        'translatable' => $is_translatable,
-                        'action' => $is_translatable ? 'translate' : 'copy'
-                    ];
-
-                    // Vérifie si au moins un champ du pod est traduisible
-                    if ($is_translatable) {
-                        $pod_has_translatable = true;
-                    }
+            foreach ($config['fields'] as $f_name => $f_data) {
+                if ($f_data['pod'] === $pod_name && $f_data['translatable']) {
+                    $pod_has_translatable = true;
+                    break;
                 }
             }
 
@@ -239,6 +220,8 @@ if (!class_exists('MWC_Translation_Manager')) {
 
             // Régénère le fichier wpml-config.xml
             $this->generate_wpml_config($config);
+
+            error_log("MWC Debug - Configuration mise à jour et fichier XML régénéré pour le pod: $pod_name");
 
             return $config;
         }
