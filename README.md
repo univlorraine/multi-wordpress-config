@@ -33,54 +33,94 @@ Les définitions des Pods se trouvent dans le répertoire `/includes/pods/`. Cha
 
 ```php 
 <?php
-// Sécurité : empêche l'accès direct au fichier.
+
 if (!defined('ABSPATH')) {
     exit;
 }
 
-$pod_name = 'exemple';
+$pod_name = 'movies';
+$pod_singular_name = 'movie';
 
 return [
-    'name' => $pod_name,
-    'label' => 'Exemple',
-    'label_singular' => 'Exemple',
-    'description' => 'Description de l\'exemple',
-    'menu-position' => 10,
-    'menu-icon' => 'dashicons-admin-generic',
-    'singleton' => false,
-    'title_field' => 'nom_du_champ',
-    'groups' => [
-        $pod_name . '_fields' => [
-            'label' => 'Champs Exemple',
+    'pod_config' => [
+        'name' => $pod_name,
+        'label' => 'Films à venir',
+        'label_singular' => 'Film à venir',
+        'label_add_new_item' => 'Nouveau film à venir',
+        'description' => 'Listing des films qui sortiront prochainement',
+        'menu_position' => 65,
+        'menu_icon' => 'dashicons-megaphone',
+        'wpgraphql_singular_name' => $pod_singular_name,
+        'wpgraphql_plural_name' => $pod_name,
+        'options' => [
+            'singleton' => false,
+            // Indique quel champ sera utilisé comme titre dans l'interface d'administration (autrement affiche 'brouillon')
+            'title_field' => $pod_singular_name . '_title',
+        ]
+    ],
+    'pod_fields' => [
+        $pod_singular_name . '_fields' => [
+            'label' => 'Champs Film à venir',
             'fields' => [
-                $pod_name . '_champ1' => [
+                $pod_singular_name . '_title' => [
                     'type' => 'text',
-                    'label' => 'Champ 1',
-                    'description' => 'Description du champ 1',
+                    'label' => 'Titre du film',
+                    'required' => true,
+                    'description' => 'Titre du film à venir.',
+                    'is_translatable' => true,
+                ],
+                $pod_singular_name . '_synopsis' => [
+                    'type' => 'wysiwyg',
+                    'label' => 'Résumé du film',
+                    'required' => true,
+                    'description' => 'Résumé du film à venir.',
+                    'is_translatable' => true,
                 ],
                 // Autres champs...
             ],
-        ]
-    ]
+        ],
+    ],
 ];
 ```
+
+* **$pod_name** : nom du Pod au pluriel
+* **$pod_singular_name** : nom du Pod au singulier
+
+Ces deux variables servent principalement à bien distinguer les noms du Pod et les champs au niveau des queries GraphQL.
+
+
+### pod_config
+
+Concerne la configuration générale du Pod
 
 * **name** : nom système du Pod
 * **label** : label du Pod affiché au pluriel
 * **label_singular** : label du Pod affiché au singulier
+* **label_add_new_item** : label du bouton "Ajouter" dans l'interface d'administration
 * **description** : description du Pod
-* **menu-position** : entier désignant la position du Pod dans le menu latéral gauche
-* **menu-icon** : icône du Pod dans le menu latéral gauche
-* **singleton** : si définit à `true` le Pod sera considéré comme Singleton
-* **title_field** : permet de définir quel champ de Pod surchargera le champ titre par défaut de Wordpress
-* **groups** : permet de grouper les champs personnalisés du Pod
-  * **label** : label du groupe de champs
-  * **fields** : définit les champs du Pod
-    * **type** : type du champ (text, number, email, date, website, ...)
-    * **label** : label du champ affiché dans le formulaire
-    * **description** : description du champ affiché dans le formulaire
+* **menu_position** : entier désignant la position du Pod dans le menu latéral gauche (sur une plage de 11 à 59, les autres étant réservés par WordPress)
+* **menu_icon** : nom dashicons de l'icône du Pod dans le menu latéral gauche
+* **wpgraphql_singular_name** : nom du Pod au singulier pour les requêtes GraphQL
+* **wpgraphql_plural_name** : nom du Pod au pluriel pour les requêtes GraphQL
+* **options** : options custom du Pod
+  * **singleton** : si définit à `true` le Pod sera considéré comme Singleton
+  * **title_field** : permet de définir quel champ de Pod surchargera le champ titre par défaut de Wordpress. La valeur de cet attribut peut être un string (=champ concerné) ou un tableau de strings (=plusieurs champs concernés qui seront formatés de la manière suivante : "champ1 : champ2")
+
+### pod_fields
+
+Concerne la configuration des champs du Pod
+
+* **label** : label du groupe de champs
+* **fields** : définit les champs du Pod
+  * **type** : type du champ (text, number, email, date, website, ...)
+  * **label** : label du champ affiché dans le formulaire
+  * **required** : si le champ est obligatoire
+  * **description** : description du champ affiché dans le formulaire
+  * **is_translatable** : si le champ est traduisible
 
 Pour plus d'informations concernant les champs et la configuration Pods disponibles : https://docs.pods.io/fields/
+
+Attention également à bien nommer la clé de chaque champ (ex `$pod_singular_name . '_title'`) car ce sont ces noms qui seront utilisés dans les queries GraphQL.
 
 ## Pods Singleton
 Le plugin permet de définir des Pods en tant que "singleton", ce qui signifie qu'ils ne peuvent avoir qu'une seule instance. 
