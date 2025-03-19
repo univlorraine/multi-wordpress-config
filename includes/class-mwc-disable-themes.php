@@ -1,14 +1,12 @@
 <?php
-/**
- * Classe pour désactiver les thèmes et leur gestion dans l'administration WordPress
- *
- * @package Multi_Wordpress_Config
- */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
+/**
+ * Classe pour désactiver les thèmes et leur gestion dans l'administration WordPress
+ */
 if (!class_exists('MWC_Disable_Themes')) {
     class MWC_Disable_Themes {
 
@@ -18,34 +16,32 @@ if (!class_exists('MWC_Disable_Themes')) {
             'theme-install.php'
         ];
 
-        /**
-         * Constructeur
-         */
-        public function __construct() {
+        public function __construct()
+        {
             $this->init_hooks();
         }
 
-        /**
-         * Initialise les hooks WordPress
-         */
-        private function init_hooks() {
-            // Désactiver l'interface de personnalisation
+        private function init_hooks(): void
+        {
+            // Désactive l'interface de personnalisation
             add_action('admin_init', [$this, 'disable_customizer_admin']);
 
-            // Masquer les menus liés aux thèmes
+            // Masque les menus liés aux thèmes dans l'administration
             add_action('admin_menu', [$this, 'remove_theme_menus']);
 
-            // Rediriger les pages de thèmes vers le dashboard
+            // Redirige les pages de thèmes vers le dashboard
             add_action('admin_init', [$this, 'redirect_theme_pages']);
 
-            // Désactiver les mises à jour de thèmes
-            add_filter('pre_site_transient_update_themes', '__return_empty_array');
-
-            // Masquer les sections de thèmes dans l'écran de mise à jour
+            // Masque les sections de thèmes dans l'écran de mise à jour
             add_action('admin_head', [$this, 'hide_theme_sections'], 999);
         }
 
-        public function disable_customizer_admin() {
+        /**
+         * Désactive l'interface de personnalisation
+         * @return void
+         */
+        public function disable_customizer_admin(): void
+        {
             global $pagenow;
 
             if ($pagenow === 'customize.php') {
@@ -55,14 +51,24 @@ if (!class_exists('MWC_Disable_Themes')) {
             remove_action('admin_bar_menu', 'wp_admin_bar_customize_menu', 40);
         }
 
-        public function remove_theme_menus() {
+        /**
+         * Supprime les menus liés aux thèmes dans l'administration
+         * @return void
+         */
+        public function remove_theme_menus(): void
+        {
             remove_menu_page('themes.php');
             remove_submenu_page('themes.php', 'themes.php');
             remove_submenu_page('themes.php', 'theme-editor.php');
             remove_submenu_page('themes.php', 'customize.php');
         }
 
-        public function redirect_theme_pages() {
+        /**
+         * Redirige les pages de thèmes vers le dashboard
+         * @return void
+         */
+        public function redirect_theme_pages(): void
+        {
             global $pagenow;
 
             if (in_array($pagenow, self::RESTRICTED_PAGES, true)) {
@@ -77,7 +83,12 @@ if (!class_exists('MWC_Disable_Themes')) {
             }
         }
 
-        public function hide_theme_sections() {
+        /**
+         * Masque les sections de thèmes dans l'écran de mise à jour
+         * @return void
+         */
+        public function hide_theme_sections(): void
+        {
             echo '<style>
                 .theme-browser,
                 .theme-count,
@@ -88,6 +99,5 @@ if (!class_exists('MWC_Disable_Themes')) {
                 }
             </style>';
         }
-
     }
 }

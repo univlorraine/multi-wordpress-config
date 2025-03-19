@@ -11,11 +11,6 @@
  * Text Domain: multi-wordpress-config
  */
 
-// TODO:
-// - Ajouter les data de Directus dans Wordpress
-// - Tester l'import export de pods
-// - Repasser sur tout le plugin pour commenter correctement, vérifier que tout est ok et optimiser le code
-
 // Sécurité : empêche l'accès direct au fichier.
 if (!defined('ABSPATH')) {
     exit;
@@ -55,6 +50,10 @@ if (!class_exists('Multi_Wordpress_Config')) {
             return self::$instance;
         }
 
+        /**
+         * Vérifie que les plugins requis sont bien activés
+         * @return bool
+         */
         private function check_dependencies(): bool {
             include_once(ABSPATH . 'wp-admin/includes/plugin.php');
 
@@ -84,12 +83,14 @@ if (!class_exists('Multi_Wordpress_Config')) {
             return true;
         }
 
-        private function define_hooks() {
+        private function define_hooks(): void
+        {
             register_activation_hook(__FILE__, [$this, 'activate']);
             register_deactivation_hook(__FILE__, [$this, 'deactivate']);
         }
 
-        private function init_components() {
+        private function init_components(): void
+        {
             require_once plugin_dir_path(__FILE__) . 'includes/class-mwc-disable-defaults.php';
             require_once plugin_dir_path(__FILE__) . 'includes/class-mwc-disable-frontend.php';
             require_once plugin_dir_path(__FILE__) . 'includes/class-mwc-disable-themes.php';
@@ -97,21 +98,25 @@ if (!class_exists('Multi_Wordpress_Config')) {
             require_once plugin_dir_path(__FILE__) . 'includes/class-mwc-pods-manager.php';
             require_once plugin_dir_path(__FILE__) . 'includes/class-mwc-translation-manager.php';
 
-            // Désactiver les types par défaut de WordPress (post, page, comment)
+            // Classe qui désactive les types par défaut de WordPress (post, page, comment)
             $this->disable_defaults = new MWC_Disable_Defaults();
-            // Désactiver toute la partie Frontend
+            // Classe qui désactive toute la partie Frontend pour faire de Wordpress un CMS Headless
             $this->disable_frontend = new MWC_Disable_Frontend();
-            // Désactiver les thèmes et le gestionnaire dans l'admin
+            // Classe qui désactive les thèmes et le gestionnaire de thèmes dans l'admin (inutiles en Headless)
             $this->disable_themes = new MWC_Disable_Themes();
-            // Réécrire l'url des assets vers le serveur Nginx
+            // Classe qui permet de rediriger l'utilisation des médias Wordpress vers un serveur Nginx
             $this->medias_manager = new MWC_Medias_Manager();
-            // Création automatique des CPT (Custom Post Types) nécessaires au projet Multi
+            // Classe de gestion des collections et champs personnalisés via l'utilisation du plugin Pods
             $this->pods_manager = new MWC_Pods_Manager();
-            // Gestion de la traduction des CPT Pods par Polylang
+            // Classe de gestion de la traduction personnalisée via l'utilisation du plugin Polylang
             $this->translation_manager = new MWC_Translation_Manager();
         }
 
-        public function activate() {
+        /**
+         * Fonctions initiées lors de l'activation du plugin
+         */
+        public function activate(): void
+        {
             if ($this->disable_defaults) {
                 $this->disable_defaults->disable_core_types();
             }
@@ -129,15 +134,16 @@ if (!class_exists('Multi_Wordpress_Config')) {
             flush_rewrite_rules();
         }
 
-        public function deactivate() {
+        /**
+         * Fonctions initiées lors de la désactivation du plugin
+         */
+        public function deactivate(): void
+        {
             if ($this->disable_defaults) {
                 $this->disable_defaults->restore_core_types();
             }
 
-            if ($this->pods_manager) {
-                $this->pods_manager->delete_all_pods();
-            }
-            delete_option('mwc_pods_created');
+            delete_option('mwc_translations_initialized');
 
             flush_rewrite_rules();
         }

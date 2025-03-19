@@ -33,17 +33,13 @@ if (!class_exists('MWC_Disable_Frontend')) {
             'do_feed_atom'
         ];
 
-        /**
-         * Constructeur
-         */
-        public function __construct() {
+        public function __construct()
+        {
             $this->init_hooks();
         }
 
-        /**
-         * Initialise les hooks WordPress
-         */
-        private function init_hooks() {
+        private function init_hooks(): void
+        {
             // Redirection du frontend vers l'admin
             add_action('template_redirect', [$this, 'redirect_frontend']);
 
@@ -86,9 +82,11 @@ if (!class_exists('MWC_Disable_Frontend')) {
         }
 
         /**
-         * Redirige toutes les requêtes frontend vers l'admin
+         * Redirige le frontend vers l'admin
+         * @return void
          */
-        public function redirect_frontend() {
+        public function redirect_frontend(): void
+        {
             if ($this->is_protected_path()) {
                 return;
             }
@@ -108,6 +106,7 @@ if (!class_exists('MWC_Disable_Frontend')) {
 
         /**
          * Vérifie si le chemin actuel est protégé
+         * @return bool
          */
         private function is_protected_path(): bool {
             $current_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '';
@@ -123,8 +122,11 @@ if (!class_exists('MWC_Disable_Frontend')) {
 
         /**
          * Restreint l'accès à l'API REST aux utilisateurs connectés
+         * @param $access
+         * @return mixed|WP_Error
          */
-        public function restrict_rest_api($access) {
+        public function restrict_rest_api($access): mixed
+        {
             if (!is_user_logged_in()) {
                 return new WP_Error(
                     'rest_not_logged_in',
@@ -138,8 +140,10 @@ if (!class_exists('MWC_Disable_Frontend')) {
 
         /**
          * Désactive les flux RSS
+         * @return void
          */
-        public function disable_feeds() {
+        public function disable_feeds(): void
+        {
             wp_die(
                 esc_html__('Les flux RSS ont été désactivés.', 'multi-wordpress-config'),
                 '',
@@ -148,19 +152,21 @@ if (!class_exists('MWC_Disable_Frontend')) {
         }
 
         /**
-         * Désenregistre tous les scripts et styles du frontend
+         * Désactive les scripts et styles du frontend
+         * @return void
          */
-        public function dequeue_frontend_assets() {
+        public function dequeue_frontend_assets(): void
+        {
             global $wp_scripts, $wp_styles;
 
-            // Désenregistre tous les scripts sauf ceux nécessaires
+            // Dés-enregistre tous les scripts sauf ceux nécessaires
             if (!empty($wp_scripts->registered)) {
                 foreach ($wp_scripts->registered as $handle => $script) {
                     wp_deregister_script($handle);
                 }
             }
 
-            // Désenregistre tous les styles sauf ceux nécessaires
+            // Dés-enregistre tous les styles sauf ceux nécessaires
             if (!empty($wp_styles->registered)) {
                 foreach ($wp_styles->registered as $handle => $style) {
                     wp_deregister_style($handle);

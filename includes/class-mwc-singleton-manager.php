@@ -1,10 +1,12 @@
 <?php
 
-// Sécurité : empêche l'accès direct au fichier.
 if (!defined('ABSPATH')) {
     exit;
 }
 
+/**
+ * Classe permettant de gérer les pods singleton (= une instance unique) dans WordPress
+ */
 if (!class_exists('MWC_Singleton_Manager')) {
     class MWC_Singleton_Manager
     {
@@ -14,7 +16,7 @@ if (!class_exists('MWC_Singleton_Manager')) {
             $this->init_hooks();
         }
 
-        private function init_hooks()
+        private function init_hooks(): void
         {
             add_action('admin_init', [$this, 'handle_singleton_instances'], 100);
             add_action('admin_menu', [$this, 'remove_singleton_add_new_menu'], 999);
@@ -22,6 +24,11 @@ if (!class_exists('MWC_Singleton_Manager')) {
             add_filter('pods_admin_setup_edit_options', [$this, 'add_singleton_option'], 10, 2);
         }
 
+        /**
+         * Vérifie si un pod est défini comme singleton
+         * @param array $pod
+         * @return bool
+         */
         private function is_pod_singleton($pod): bool
         {
             if (!function_exists('pods_api')) {
@@ -32,12 +39,12 @@ if (!class_exists('MWC_Singleton_Manager')) {
         }
 
         /**
-         * Ajoute l'option "singleton" dans les options de configuration des pods
+         * Ajoute l'option "singleton" dans les options de configuration des Pods dans l'admin
          * @param array $options
          * @param array $pod
          * @return array
          */
-        public function add_singleton_option($options, $pod)
+        public function add_singleton_option($options, $pod): array
         {
             if ($pod['type'] === 'post_type') {
                 $options['admin-ui'][] = [
@@ -57,7 +64,7 @@ if (!class_exists('MWC_Singleton_Manager')) {
          * @return void
          * @throws Exception
          */
-        public function handle_singleton_instances()
+        public function handle_singleton_instances(): void
         {
             if (!function_exists('pods_api')) {
                 return;
@@ -122,7 +129,6 @@ if (!class_exists('MWC_Singleton_Manager')) {
                     }
                 }
 
-                // Une fois que nous avons traité le pod correspondant, nous pouvons sortir
                 break;
             }
         }
@@ -132,7 +138,8 @@ if (!class_exists('MWC_Singleton_Manager')) {
          * @return void
          * @throws Exception
          */
-        public function remove_singleton_add_new_menu() {
+        public function remove_singleton_add_new_menu(): void
+        {
             if (!function_exists('pods_api')) {
                 return;
             }
@@ -155,7 +162,8 @@ if (!class_exists('MWC_Singleton_Manager')) {
          * @return void
          * @throws Exception
          */
-        public function remove_singleton_add_new_buttons() {
+        public function remove_singleton_add_new_buttons(): void
+        {
             if (!function_exists('pods_api')) {
                 return;
             }

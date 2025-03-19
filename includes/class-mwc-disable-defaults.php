@@ -6,7 +6,7 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Classe gérant la désactivation des types de contenu par défaut
+ * Classe gérant la désactivation des types de contenu par défaut de Wordpress
  */
 if (!class_exists('MWC_Disable_Defaults')) {
     class MWC_Disable_Defaults {
@@ -25,11 +25,13 @@ if (!class_exists('MWC_Disable_Defaults')) {
             'dashboard_activity'
         ];
 
-        public function __construct() {
+        public function __construct()
+        {
             $this->init_hooks();
         }
 
-        private function init_hooks() {
+        private function init_hooks(): void
+        {
             // Administration
             add_action('admin_menu', [$this, 'remove_admin_menus']);
             add_action('wp_dashboard_setup', [$this, 'remove_dashboard_widgets']);
@@ -42,7 +44,7 @@ if (!class_exists('MWC_Disable_Defaults')) {
             add_filter('get_post_metadata', [$this, 'filter_post_metadata'], 10, 4);
             add_filter('show_admin_bar', '__return_false');
 
-            // Désactiver commentaires et pings
+            // Désactivation des commentaires et pings
             add_filter('comments_open', '__return_false', 20, 2);
             add_filter('pings_open', '__return_false', 20, 2);
             add_filter('comments_array', '__return_empty_array', 10, 2);
@@ -56,21 +58,36 @@ if (!class_exists('MWC_Disable_Defaults')) {
             add_action('init', [$this, 'disable_core_types'], 10);
         }
 
-        public function remove_admin_menus() {
+        /**
+         * Supprime les menus d'administration inutiles
+         * @return void
+         */
+        public function remove_admin_menus(): void
+        {
             foreach (self::DISABLED_TYPES as $type) {
                 remove_menu_page("edit.php?post_type=$type");
             }
             remove_menu_page('edit-comments.php');
         }
 
-        public function remove_dashboard_widgets() {
+        /**
+         * Supprime les widgets du tableau de bord
+         * @return void
+         */
+        public function remove_dashboard_widgets(): void
+        {
             foreach (self::DASHBOARD_WIDGETS as $widget) {
                 remove_meta_box($widget, 'dashboard', 'normal');
                 remove_meta_box($widget, 'dashboard', 'side');
             }
         }
 
-        public function disable_core_types() {
+        /**
+         * Désactive les types de contenu par défaut de Wordpress
+         * @return void
+         */
+        public function disable_core_types(): void
+        {
             global $wp_post_types;
 
             foreach (self::DISABLED_TYPES as $type) {
@@ -90,7 +107,12 @@ if (!class_exists('MWC_Disable_Defaults')) {
             }
         }
 
-        public function restore_core_types() {
+        /**
+         * Restaure les types de contenu par défaut de Wordpress lors de la désactivation du plugin
+         * @return void
+         */
+        public function restore_core_types(): void
+        {
             global $wp_post_types;
 
             foreach (self::DISABLED_TYPES as $type) {
@@ -122,7 +144,12 @@ if (!class_exists('MWC_Disable_Defaults')) {
             delete_option('default_ping_status');
         }
 
-        public function unregister_default_taxonomies() {
+        /**
+         * Désactive la taxonomie dans Wordpress
+         * @return void
+         */
+        public function unregister_default_taxonomies(): void
+        {
             foreach (self::DISABLED_TAXONOMIES as $taxonomy) {
                 if (taxonomy_exists($taxonomy)) {
                     unregister_taxonomy_for_object_type($taxonomy, 'post');
@@ -131,7 +158,16 @@ if (!class_exists('MWC_Disable_Defaults')) {
             }
         }
 
-        public function filter_post_metadata($value, $object_id, $meta_key, $single) {
+        /**
+         * Filtre les métadonnées des types de contenu désactivés
+         * @param mixed $value
+         * @param int $object_id
+         * @param string $meta_key
+         * @param bool $single
+         * @return mixed
+         */
+        public function filter_post_metadata($value, $object_id, $meta_key, $single): mixed
+        {
             $post_type = get_post_type($object_id);
             if (in_array($post_type, self::DISABLED_TYPES, true)) {
                 return '';
@@ -139,7 +175,13 @@ if (!class_exists('MWC_Disable_Defaults')) {
             return $value;
         }
 
-        public function remove_admin_bar_nodes($wp_admin_bar) {
+        /**
+         * Supprime les entrées vers les types de contenu désactivés dans la barre d'administration
+         * @param WP_Admin_Bar $wp_admin_bar
+         * @return void
+         */
+        public function remove_admin_bar_nodes($wp_admin_bar): void
+        {
             foreach (self::DISABLED_TYPES as $type) {
                 $wp_admin_bar->remove_node("new-{$type}");
             }

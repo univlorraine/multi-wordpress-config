@@ -1,22 +1,23 @@
 <?php
 
-// Sécurité : empêche l'accès direct au fichier.
 if (!defined('ABSPATH')) {
     exit;
 }
 
+/**
+ * Classe permettant de gérer les traductions des champs Pods via le plugin Polylang
+ */
 if (!class_exists('MWC_Translation_Manager')) {
     class MWC_Translation_Manager
     {
         private static $isProcessingTrash = false;
         private static $isProcessingUntrash = false;
 
-        public function __construct()
-        {
+        public function __construct() {
             $this->init_hooks();
         }
 
-        private function init_hooks()
+        private function init_hooks(): void
         {
             // Ajout d'un champ de configuration pour la traduction dans Pods
             add_filter('pods_admin_setup_edit_field_options', [$this, 'add_translation_option'], 10, 2);
@@ -28,27 +29,33 @@ if (!class_exists('MWC_Translation_Manager')) {
             add_filter('pods_form_ui_label', [$this, 'add_translation_flag_to_label'], 10, 3);
             add_filter('pods_form_ui_field_label_text', [$this, 'add_translation_flag_to_label'], 10, 3);
 
+            // Supprime toutes les traductions d'un post lorsqu'il est supprimé
             add_action('wp_trash_post', [$this, 'delete_linked_translations']);
             add_action('before_delete_post', [$this, 'delete_linked_translations']);
+            // Restaure toutes les traductions d'un post lorsqu'il est restauré
             add_action('untrash_post', [$this, 'restore_linked_translations']);
 
-            // Ajoute la page d'administration
+            // Ajoute une entrée dans le menu des paramètres de WordPress pour gérer les traductions
             add_action('admin_menu', [$this, 'add_admin_menu']);
         }
 
         /**
-         * Initialise les traductions
-         * Cette méthode est destinée à être appelée depuis la classe principale
-         * après l'initialisation complète de Pods
+         * Initialisation des traductions
+         * Cette méthode est appelée lors de l'activation du plugin
+         * @return void
          */
-        public function init_translations() {
+        public function init_translations(): void
+        {
             $this->rebuild_all_translation_config();
         }
 
         /**
          * Reconstruit entièrement la configuration des traductions pour tous les pods
+         * On crée ici une configuration pour éviter de parcourir tous les champs de Pods à chaque fois
+         * @return array Configuration des traductions
          */
-        public function rebuild_all_translation_config() {
+        public function rebuild_all_translation_config(): array
+        {
             // Initialiser la configuration
             $config = [
                 'pods' => [],
@@ -108,13 +115,12 @@ if (!class_exists('MWC_Translation_Manager')) {
         }
 
         /**
-         * Ajoute l'option de traduction dans l'interface de configuration des champs Pods
+         * Ajoute l'option de traduction dans l'interface de configuration des champs Pods dans l'admin
          *
          * @param array $options Les options actuelles du champ
-         * @param array $field Les données du champ
          * @return array Les options modifiées
          */
-        public function add_translation_option($options, $field)
+        public function add_translation_option($options): array
         {
             // Vérifie si Polylang est actif
             if (!function_exists('pll_languages_list')) {
@@ -138,8 +144,13 @@ if (!class_exists('MWC_Translation_Manager')) {
          * Gère la sauvegarde d'un champ via l'API REST
          * C'est cette méthode qui est appelée lors de la sauvegarde d'un champ
          * dans l'interface d'administration de Pods
+         * @param mixed $result Résultat actuel de la requête
+         * @param WP_REST_Server $server Serveur REST
+         * @param WP_REST_Request $request Requête REST
+         * @return mixed Résultat modifié
          */
-        public function handle_field_save($result, $server, $request) {
+        public function handle_field_save($result, $server, $request): mixed
+        {
             $route = $request->get_route();
 
             // Vérifie si c'est une requête POST sur un champ Pods
@@ -153,8 +164,6 @@ if (!class_exists('MWC_Translation_Manager')) {
                     if ($pod) {
                         $field_name = $params['name'];
                         $is_translatable = !empty($params['args']['is_translatable']);
-
-                        error_log("******** DEBUG ******** le champ $field_name est traduisible ? $is_translatable");
 
                         // On met à jour la configuration avec la nouvelle valeur du champ
                         $this->update_field_translation_config($pod['name'], $field_name, $is_translatable);
@@ -173,7 +182,8 @@ if (!class_exists('MWC_Translation_Manager')) {
          * @param bool $is_translatable Indique si le champ est traduisible
          * @return array Configuration mise à jour
          */
-        private function update_field_translation_config($pod_name, $field_name, $is_translatable) {
+        private function update_field_translation_config($pod_name, $field_name, $is_translatable): array
+        {
             // Récupère la configuration existante
             $config = get_transient('_mwc_translation_config_cache');
             if (!$config) {
@@ -190,6 +200,7 @@ if (!class_exists('MWC_Translation_Manager')) {
                 'translatable' => $is_translatable
             ];
 
+            // Met à jour la configuration pour tous les champs
             $config['all_pod_fields'][$field_name] = [
                 'pod' => $pod_name,
                 'translatable' => $is_translatable,
@@ -198,7 +209,6 @@ if (!class_exists('MWC_Translation_Manager')) {
 
             // Vérifie si le pod a au moins un champ traduisible
             $pod_has_translatable = false;
-
             foreach ($config['fields'] as $f_name => $f_data) {
                 if ($f_data['pod'] === $pod_name && $f_data['translatable']) {
                     $pod_has_translatable = true;
@@ -221,15 +231,17 @@ if (!class_exists('MWC_Translation_Manager')) {
             // Régénère le fichier wpml-config.xml
             $this->generate_wpml_config($config);
 
-            error_log("MWC Debug - Configuration mise à jour et fichier XML régénéré pour le pod: $pod_name");
-
             return $config;
         }
 
         /**
          * Ajoute un drapeau emoji à côté des champs traduisibles dans l'admin Pods.
+         * @param string $label Label du champ
+         * @param string $name Nom du champ
+         * @param array|null $options Options du champ
+         * @return string Label modifié
          */
-        public function add_translation_flag_to_label($label, $name, $options = null)
+        public function add_translation_flag_to_label($label, $name, $options = null): string
         {
             if (!function_exists('pll_current_language')) {
                 return $label;
@@ -248,8 +260,10 @@ if (!class_exists('MWC_Translation_Manager')) {
          * Envoie toutes les traductions d'un post dans la corbeille.
          *
          * @param int $post_id ID du post supprimé
+         * @return void
          */
-        public function delete_linked_translations(int $post_id): void {
+        public function delete_linked_translations(int $post_id): void
+        {
             if (!function_exists('pll_get_post_translations')) {
                 return;
             }
@@ -279,14 +293,16 @@ if (!class_exists('MWC_Translation_Manager')) {
          * Restaure toutes les traductions associées lorsqu'un post est restauré.
          *
          * @param int $post_id ID du post restauré
+         * @return void
          */
-        public function restore_linked_translations($post_id) {
+        public function restore_linked_translations($post_id): void
+        {
             // Vérifie si Polylang est actif
             if (!function_exists('pll_get_post_translations')) {
                 return;
             }
 
-            // Éviter la boucle infinie
+            // Éviter une boucle infinie sur la suppression
             if (self::$isProcessingUntrash) {
                 return;
             }
@@ -319,8 +335,10 @@ if (!class_exists('MWC_Translation_Manager')) {
 
         /**
          * Vide le cache de la configuration des traductions
+         * @return true
          */
-        public function clear_translation_config_cache() {
+        public function clear_translation_config_cache(): true
+        {
             // Supprime simplement le cache transient
             delete_transient('_mwc_translation_config_cache');
             return true;
@@ -331,10 +349,12 @@ if (!class_exists('MWC_Translation_Manager')) {
          * Version optimisée qui n'inclut pas les champs en mode 'copy' lorsque tous les champs
          * d'un pod sont en mode 'copy'
          *
-         * @param array|null $config Configuration des traductions (optional)
+         * @param null $config Configuration des traductions (optional)
          * @return bool Succès ou échec de la génération du fichier
+         * @throws DOMException
          */
-        private function generate_wpml_config($config = null) {
+        private function generate_wpml_config($config = null): bool
+        {
             // Si la configuration n'est pas fournie, on la récupère
             if ($config === null) {
                 $config = get_transient('_mwc_translation_config_cache');
@@ -441,8 +461,10 @@ if (!class_exists('MWC_Translation_Manager')) {
 
         /**
          * Récupère la liste des champs Pods traduisibles depuis la configuration.
+         * @return array Liste des champs traduisibles
          */
-        private function get_translatable_fields() {
+        private function get_translatable_fields(): array
+        {
             $config = get_option('_mwc_translation_config', []);
             $translatable_fields = [];
 
@@ -478,9 +500,11 @@ if (!class_exists('MWC_Translation_Manager')) {
         }
 
         /**
-         * Ajoute le menu d'administration
+         * Ajoute une entrée dans le menu des paramètres de WordPress pour gérer les traductions
+         * @return void
          */
-        public function add_admin_menu() {
+        public function add_admin_menu(): void
+        {
             add_submenu_page(
                 'options-general.php',
                 'MWC Traductions',
@@ -492,9 +516,11 @@ if (!class_exists('MWC_Translation_Manager')) {
         }
 
         /**
-         * Génère le contenu de la page d'administration
+         * Affiche la page d'administration pour gérer les traductions
+         * @return void
          */
-        public function render_admin_page() {
+        public function render_admin_page(): void
+        {
             echo '<div class="wrap">';
             echo '<h1>MWC Traductions</h1>';
 
@@ -529,6 +555,7 @@ if (!class_exists('MWC_Translation_Manager')) {
 
         /**
          * Affiche la configuration actuelle des traductions
+         * @return void
          */
         private function render_translation_status() {
             // Récupère la configuration actuelle
@@ -569,7 +596,6 @@ if (!class_exists('MWC_Translation_Manager')) {
 
         /**
          * Organise les champs par pod et type d'action (translate/copy)
-         *
          * @param array $config Configuration des traductions
          * @return array Tableau organisé des champs par pod
          */
@@ -600,11 +626,11 @@ if (!class_exists('MWC_Translation_Manager')) {
 
         /**
          * Affiche un élément pod avec ses champs
-         *
          * @param string $pod_name Nom du pod
          * @param array $pod_fields Tableau des champs du pod
          */
-        private function render_pod_item($pod_name, $pod_fields) {
+        private function render_pod_item($pod_name, $pod_fields): void
+        {
             $has_translatable = !empty($pod_fields['translate']);
             $status_class = $has_translatable ? 'pod-translatable' : 'pod-not-translatable';
             $status_icon = $has_translatable ? '🌐' : '⛔';
@@ -634,14 +660,14 @@ if (!class_exists('MWC_Translation_Manager')) {
 
         /**
          * Affiche une liste de champs
-         *
          * @param array $fields Liste des champs à afficher
          * @param string $title Titre de la section
          * @param string $icon Icône à afficher
          * @param string $title_color Couleur du titre
          * @param string $text_color Couleur du texte (optionnel)
          */
-        private function render_field_list($fields, $title, $icon, $title_color, $text_color = '') {
+        private function render_field_list($fields, $title, $icon, $title_color, $text_color = ''): void
+        {
             echo '<div class="fields-list" style="margin-bottom: 15px;">';
             echo '<h4 style="margin-top: 0; color: ' . $title_color . ';">' . $icon . ' ' . $title . '</h4>';
             echo '<ul style="margin: 0; padding: 0 0 0 20px;' . ($text_color ? ' color: ' . $text_color . ';' : '') . '">';
@@ -654,8 +680,10 @@ if (!class_exists('MWC_Translation_Manager')) {
 
         /**
          * Génère le script JavaScript pour l'accordéon
+         * @return void
          */
-        private function render_accordion_script() {
+        private function render_accordion_script(): void
+        {
             echo '<script type="text/javascript">
                     jQuery(document).ready(function($) {
                         $(".pod-header").click(function() {

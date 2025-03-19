@@ -1,6 +1,5 @@
 <?php
 
-// Sécurité : empêche l'accès direct au fichier.
 if (!defined('ABSPATH')) {
     exit;
 }
@@ -11,20 +10,25 @@ if (!defined('ABSPATH')) {
 if (!class_exists('MWC_Medias_Manager')) {
     class MWC_Medias_Manager {
 
-        public function __construct() {
+        public function __construct()
+        {
             $this->init_hooks();
         }
 
-        private function init_hooks() {
+        private function init_hooks(): void
+        {
             add_action('init', [$this, 'block_direct_uploads_access'], 1);
             add_filter('upload_dir', [$this, 'redirect_uploads_to_nginx_proxy']);
             add_filter('wp_get_attachment_url', [$this, 'redirect_uploads_to_nginx_proxy']);
         }
 
         /**
-         * Redirige les URLs des médias vers le proxy Nginx
+         * Redirige les uploads vers le proxy Nginx
+         * @param $url_or_uploads
+         * @return array|mixed|string|string[]
          */
-        public function redirect_uploads_to_nginx_proxy($url_or_uploads) {
+        public function redirect_uploads_to_nginx_proxy($url_or_uploads): mixed
+        {
             // Récupération de la variable d'environnement une seule fois
             static $nginx_proxy = null;
             if ($nginx_proxy === null) {
@@ -53,11 +57,15 @@ if (!class_exists('MWC_Medias_Manager')) {
                 );
             }
 
-            // Fallback: retourner la valeur inchangée
             return $url_or_uploads;
         }
 
-        public function block_direct_uploads_access() {
+        /**
+         * Bloque l'accès direct aux uploads
+         * @return void
+         */
+        public function block_direct_uploads_access(): void
+        {
             // Si nous sommes en train de demander un fichier dans uploads
             if (strpos($_SERVER['REQUEST_URI'], '/wp-content/uploads/') !== false) {
                 // Si le référent n'existe pas ou n'est pas de notre site (pour autoriser l'admin)
