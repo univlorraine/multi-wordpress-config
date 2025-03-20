@@ -158,9 +158,8 @@ if (!class_exists('Multi_Wordpress_Config')) {
                 $this->disable_defaults->disable_core_types();
             }
 
-            if (get_option('mwc_pods_created') !== 'yes' && $this->pods_manager) {
+            if ($this->pods_manager) {
                 $this->pods_manager->create_default_pods();
-                update_option('mwc_pods_created', 'yes');
             }
 
             if ((get_option('mwc_translations_initialized') !== 'yes') && $this->translation_manager) {

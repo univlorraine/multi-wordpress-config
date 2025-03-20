@@ -89,21 +89,23 @@ if (!class_exists('MWC_Pods_Manager')) {
 
         /**
          * Vérifie si des pods configurés existent déjà (pour éviter d'écraser l'existant)
-         * @return bool
+         * @return array
          */
-        public function check_existing_pods(): bool {
+        public function check_missing_pods(): array {
             if (!function_exists('pods_api')) {
-                return false;
+                return array_keys($this->pods_config);
             }
 
             $api = pods_api();
+            $missing_pods = [];
+
             foreach (array_keys($this->pods_config) as $pod_name) {
                 if (!$api->pod_exists($pod_name)) {
-                    return false;
+                    $missing_pods[] = $pod_name;
                 }
             }
 
-            return true;
+            return $missing_pods;
         }
 
         /**
@@ -118,6 +120,13 @@ if (!class_exists('MWC_Pods_Manager')) {
             }
 
             $api = pods_api();
+
+            // On récupère la liste des pods manquants
+            $missing_pods = $this->check_missing_pods();
+
+            if (empty($missing_pods)) {
+                return; // Tous les pods sont déjà installés
+            }
 
             // Paramètres par défaut pour tous les pods
             $default_pod_args = [
@@ -167,6 +176,11 @@ if (!class_exists('MWC_Pods_Manager')) {
             // Pour chaque config de pod présente dans le dossier pods/
             foreach ($this->pods_config as $pod_name => $pod_data) {
                 try {
+                    // Si le pod est déjà créé, on passe au suivant
+                    if (!in_array($pod_name, $missing_pods)) {
+                        continue;
+                    }
+
                     // Vérifier que les sections requises sont présentes
                     if (!isset($pod_data['pod_config']) || !isset($pod_data['pod_fields'])) {
                         error_log('Configuration de pod invalide: structure incorrecte');
