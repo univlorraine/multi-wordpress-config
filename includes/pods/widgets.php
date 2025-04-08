@@ -57,7 +57,7 @@ return [
         'options' => [
             'singleton' => false,
             // Indique quel champ sera utilisé comme titre dans l'interface d'administration (autrement affiche 'brouillon')
-            'title_field' => $pod_singular_name . '_title',
+            'title_field' => $pod_singular_name . '_code',
         ]
     ],
     'pod_fields' => [
