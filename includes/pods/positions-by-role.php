@@ -81,7 +81,6 @@ return [
                     'pick_format_type' => 'single',
                     'pick_format_single' => 'autocomplete',
                     'pick_display_format_separator' => ', ',
-			        'pick_taggable' => '1',
                     'simple_relationship' => '1',
                     'pick_display_format_single' => 'name'
                 ],

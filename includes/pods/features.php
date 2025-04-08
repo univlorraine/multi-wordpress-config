@@ -164,7 +164,6 @@ return [
                         ],
                     ],
                     'pick_val' => 'roles',
-                    'pick_taggable' => '1',
                 ],
                 $pod_singular_name . '_position' => [
                     'type' => 'number',
