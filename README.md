@@ -136,7 +136,7 @@ Pour cela, il suffit de définir une variable d'environnement `NGINX_UPLOADS_PRO
 ## Gestion des traductions
 Le plugin intègre la gestion des traductions via Polylang. 
 Vous pouvez définir quels champs sont traduisibles dans l'interface d'administration de Pods.
-Un menu "MWC Traductions" est disponible dans les paramètres pour rafraîchir la configuration des traductions.
+Il faut au préalable avoir configuré les langues à utiliser dans Polylang, et sélectionner les types de contenu à traduire dans l'interface d'administration de Polylang : `Langues > Réglages > Types de publication personnalisés et taxonomies`
 
 ## Licence
 
