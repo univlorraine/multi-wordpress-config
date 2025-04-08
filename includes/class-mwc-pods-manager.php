@@ -63,6 +63,10 @@ if (!class_exists('MWC_Pods_Manager')) {
         {
             add_action('pods_api_post_save_pod_item', [$this, 'sync_pod_field_with_title'], 10, 3);
             add_filter('pods_admin_setup_edit_options', [$this, 'add_title_sync_option'], 10, 2);
+
+            // Permet de reconstruire les relations Pods après un import
+            // Hack pour palier au problème soulevé auprès de Pods : https://github.com/pods-framework/pods/issues/7415
+            add_action('import_end', [$this, 'rebuild_pods_relations_after_import']);
         }
 
         /**
@@ -296,8 +300,7 @@ if (!class_exists('MWC_Pods_Manager')) {
         }
 
         /**
-         * Ajoute une option dans l'administration de Pods pour synchroniser un champ
-         * vec le titre par défaut de WordPress
+         * Ajoute une option dans l'administration de Pods pour synchroniser un champ avec le titre par défaut de WordPress
          * @param $options
          * @param $pod
          * @return mixed
@@ -325,6 +328,144 @@ if (!class_exists('MWC_Pods_Manager')) {
                 ];
             }
             return $options;
+        }
+
+        /**
+         * Reconstruit les relations Pods après un import WordPress
+         * S'exécute automatiquement à la fin d'un import via le hook 'import_end'
+         * Hack pour palier au problème soulevé auprès de Pods : https://github.com/pods-framework/pods/issues/7415
+         * @return void
+         */
+        public function rebuild_pods_relations_after_import(): void
+        {
+            global $wpdb;
+
+            // Récupérer tous les posts qui ont des métadonnées _pods_* (relations)
+            $meta_keys = $wpdb->get_col("
+                SELECT DISTINCT meta_key 
+                FROM {$wpdb->postmeta} 
+                WHERE meta_key LIKE '\\_pods\\_%'
+            ");
+
+            if (empty($meta_keys)) {
+                error_log("MWC_Pods_Manager - Aucune métadonnée de relation Pods trouvée");
+                return;
+            }
+
+            $relations_count = 0;
+            $skipped_count = 0;
+
+            foreach ($meta_keys as $meta_key) {
+                // Extraire le nom du champ sans le préfixe _pods_
+                $field_name = substr($meta_key, 6);
+
+                // Récupérer tous les posts avec cette métadonnée
+                $posts_with_meta = $wpdb->get_results($wpdb->prepare("
+                    SELECT post_id, meta_value 
+                    FROM {$wpdb->postmeta} 
+                    WHERE meta_key = %s
+                ", $meta_key));
+
+                foreach ($posts_with_meta as $post_meta) {
+                    $post_id = $post_meta->post_id;
+                    $post_type = get_post_type($post_id);
+
+                    if (!$post_type) {
+                        error_log("MWC_Pods_Manager - Post ID {$post_id} n'a pas de type de post valide");
+                        continue;
+                    }
+
+                    // Récupérer les informations sur le pod et le champ
+                    try {
+                        $pod = pods_api()->load_pod(['name' => $post_type]);
+
+                        if (empty($pod)) {
+                            error_log("MWC_Pods_Manager - Pod non trouvé pour le type {$post_type}");
+                            continue;
+                        }
+
+                        if (!isset($pod['fields'][$field_name])) {
+                            error_log("MWC_Pods_Manager - Champ {$field_name} non trouvé dans le pod {$post_type}");
+                            continue;
+                        }
+
+                        $field = $pod['fields'][$field_name];
+
+                        // Vérifier si c'est un champ de relation
+                        if (!in_array($field['type'], ['pick', 'file', 'avatar'])) {
+                            error_log("MWC_Pods_Manager - Champ {$field_name} n'est pas un champ de relation, mais de type {$field['type']}");
+                            continue;
+                        }
+
+                        // Désérialiser la valeur de la métadonnée
+                        $related_ids = maybe_unserialize($post_meta->meta_value);
+
+                        // Si c'est une chaîne ou un entier, le convertir en tableau
+                        if (!is_array($related_ids)) {
+                            $related_ids = [$related_ids];
+                        }
+
+                        // Trouver le pod et le champ de la relation
+                        $related_pod_id = 0;
+                        if (!empty($field['pick_val'])) {
+                            $related_pod = pods_api()->load_pod(['name' => $field['pick_val']]);
+                            if (!empty($related_pod)) {
+                                $related_pod_id = $related_pod['id'];
+                            }
+                        }
+
+                        // Ajouter les nouvelles relations
+                        foreach ($related_ids as $related_id) {
+                            if (empty($related_id)) {
+                                continue;
+                            }
+
+                            // Vérifier si la relation existe déjà
+                            $exists = $wpdb->get_var($wpdb->prepare(
+                                "SELECT COUNT(*) FROM {$wpdb->prefix}podsrel 
+                                WHERE pod_id = %d AND field_id = %d AND item_id = %d AND related_item_id = %d",
+                                $pod['id'], $field['id'], $post_id, $related_id
+                            ));
+
+                            if ($exists) {
+                                $skipped_count++;
+                                continue;
+                            }
+
+                            // Effectuer l'insertion et vérifier le résultat
+                            $result = $wpdb->insert(
+                                "{$wpdb->prefix}podsrel",
+                                [
+                                    'pod_id' => $pod['id'],
+                                    'field_id' => $field['id'],
+                                    'item_id' => $post_id,
+                                    'related_pod_id' => $related_pod_id,
+                                    'related_field_id' => 0,
+                                    'related_item_id' => $related_id,
+                                    'weight' => 0
+                                ]
+                            );
+
+                            if ($result) {
+                                $relations_count++;
+                                error_log("MWC_Pods_Manager - Relation reconstruite: {$post_id} -> {$related_id} (champ: {$field_name})");
+                            } else {
+                                error_log("MWC_Pods_Manager - Échec de l'insertion: {$post_id} -> {$related_id} (erreur: " . $wpdb->last_error . ")");
+                            }
+                        }
+
+                    } catch (Exception $e) {
+                        error_log("MWC_Pods_Manager - Erreur lors de la reconstruction: " . $e->getMessage());
+                    }
+                }
+            }
+
+            error_log("MWC_Pods_Manager - Reconstruction terminée: {$relations_count} relations reconstruites, {$skipped_count} relations ignorées (déjà existantes)");
+
+            // Vider le cache des pods après modification
+            if (function_exists('pods_api') && method_exists(pods_api(), 'cache_flush_pods')) {
+                pods_api()->cache_flush_pods();
+            }
         }
     }
 }
