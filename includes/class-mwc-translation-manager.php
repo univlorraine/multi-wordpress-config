@@ -105,10 +105,10 @@ if (!class_exists('MWC_Translation_Manager')) {
         /**
          * Récupère les champs non traduisibles depuis un pod
          *
-         * @param array $pod Le pod chargé
+         * @param array|\Pods\Whatsit\Pod $pod Le pod chargé
          * @return array Liste des noms de champs non traduisibles
          */
-        private function get_non_translatable_fields_from_pod(array $pod): array
+        private function get_non_translatable_fields_from_pod($pod): array
         {
             $non_translatable_fields = [];
 
