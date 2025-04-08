@@ -46,10 +46,12 @@ if (!defined('ABSPATH')) {
 if (!class_exists('MWC_Translation_Manager')) {
     class MWC_Translation_Manager
     {
-        private static $isProcessingTrash = false;
-        private static $isProcessingUntrash = false;
+        private const CACHE_KEY = 'mwc_non_translatable_fields_cache';
+        private const OPTION_POLYLANG_CHANGED = 'mwc_polylang_options_changed';
+        private const TRANSIENT_CLEANUP = 'mwc_pods_relations_cleanup_last_run';
 
-        public function __construct() {
+        public function __construct()
+        {
             $this->init_hooks();
         }
 
@@ -58,467 +60,85 @@ if (!class_exists('MWC_Translation_Manager')) {
             // Ajout d'un champ de configuration pour la traduction dans Pods
             add_filter('pods_admin_setup_edit_field_options', [$this, 'add_translation_option'], 10, 2);
 
-            // Hook sur la requête REST pour la mise à jour des champs Pods
-            add_filter('rest_pre_dispatch', [$this, 'handle_field_save'], 10, 3);
+            // Intercepter les requêtes API REST pour les pods et les champs
+            add_filter('rest_pre_dispatch', [$this, 'handle_rest_requests'], 10, 3);
+
+            // Lors de la modification des réglages Polylang
+            add_action('wp_ajax_pll_save_options', [$this, 'intercept_polylang_options_save'], 1);
+            add_action('admin_init', [$this, 'check_polylang_options_changed']);
 
             // Ajoute un flag de traduction aux champs Pods
             add_filter('pods_form_ui_label', [$this, 'add_translation_flag_to_label'], 10, 3);
             add_filter('pods_form_ui_field_label_text', [$this, 'add_translation_flag_to_label'], 10, 3);
 
-            // Supprime toutes les traductions d'un post lorsqu'il est supprimé
-            add_action('wp_trash_post', [$this, 'delete_linked_translations']);
-            add_action('before_delete_post', [$this, 'delete_linked_translations']);
-            // Restaure toutes les traductions d'un post lorsqu'il est restauré
-            add_action('untrash_post', [$this, 'restore_linked_translations']);
+            // Ajoute les champs non traduisibles à la liste des méta-données à copier par Polylang
+            add_filter('pll_copy_post_metas', [$this, 'copy_post_metas'], 10, 3);
 
-            // Ajoute une entrée dans le menu des paramètres de WordPress pour gérer les traductions
-            add_action('admin_menu', [$this, 'add_admin_menu']);
+            // Hack pour gérer la copie des relations Pods
+            // cf: https://github.com/pods-framework/pods/issues/7415
+            add_action('add_meta_boxes', [$this, 'setup_translation_relations'], 10, 2);
+            add_action('save_post', [$this, 'sync_translation_relations'], 10, 3);
+            add_action('admin_init', [$this, 'clean_orphaned_relations'], 10);
+
+            // Supprime / restaure toutes les traductions associées à un post lors de sa suppression / restauration
+            add_action('wp_trash_post', [$this, 'trash_post_translations'], 10, 1);
+            add_action('untrash_post', [$this, 'untrash_post_translations'], 10, 1);
         }
 
         /**
-         * Initialisation des traductions
-         * Cette méthode est appelée lors de l'activation du plugin
-         * @return void
-         */
-        public function init_translations(): void
-        {
-            $this->rebuild_all_translation_config();
-        }
-
-        /**
-         * Reconstruit entièrement la configuration des traductions pour tous les pods
-         * On crée ici une configuration pour éviter de parcourir tous les champs de Pods à chaque fois
-         * @return array Configuration des traductions
-         */
-        public function rebuild_all_translation_config(): array
-        {
-            // Initialiser la configuration
-            $config = [
-                'pods' => [],
-                'fields' => [],
-                'all_pod_fields' => []
-            ];
-
-            // Récupérer tous les pods existants
-            $all_pods = pods_api()->load_pods();
-
-            if (!empty($all_pods)) {
-                foreach ($all_pods as $pod) {
-                    $pod_name = $pod['name'];
-                    $pod_has_translatable = false;
-
-                    // Parcourir tous les champs de ce pod
-                    if (isset($pod['fields']) && !empty($pod['fields'])) {
-                        foreach ($pod['fields'] as $field) {
-                            $field_name = $field['name'];
-                            $is_translatable = !empty($field['options']['is_translatable']);
-
-                            // Mettre à jour la configuration du champ
-                            $config['fields'][$field_name] = [
-                                'pod' => $pod_name,
-                                'translatable' => $is_translatable
-                            ];
-
-                            // Ajouter ce champ à la liste complète
-                            $config['all_pod_fields'][$field_name] = [
-                                'pod' => $pod_name,
-                                'translatable' => $is_translatable,
-                                'action' => $is_translatable ? 'translate' : 'copy'
-                            ];
-
-                            // Vérifier si au moins un champ du pod est traduisible
-                            if ($is_translatable) {
-                                $pod_has_translatable = true;
-                            }
-                        }
-                    }
-
-                    // Ajouter le pod à la liste si au moins un champ est traduisible
-                    if ($pod_has_translatable) {
-                        $config['pods'][$pod_name] = true;
-                    }
-                }
-            }
-
-            // Sauvegarder la configuration
-            update_option('_mwc_translation_config', $config);
-            set_transient('_mwc_translation_config_cache', $config, 3600);
-
-            // Générer le fichier wpml-config.xml
-            $this->generate_wpml_config($config);
-
-            return $config;
-        }
-
-        /**
-         * Ajoute l'option de traduction dans l'interface de configuration des champs Pods dans l'admin
+         * Détermine si un type de post est traduisible dans Polylang
          *
-         * @param array $options Les options actuelles du champ
-         * @return array Les options modifiées
+         * @param string $post_type Le type de post à vérifier
+         * @return bool True si le type de post est traduisible, false sinon
          */
-        public function add_translation_option($options): array
+        private function is_post_type_translatable(string $post_type): bool
         {
-            // Vérifie si Polylang est actif
-            if (!function_exists('pll_languages_list')) {
-                return $options;
+            if (function_exists('pll_is_translated_post_type')) {
+                return pll_is_translated_post_type($post_type);
             }
 
-            $options['basic'][] = [
-                'name' => 'is_translatable',
-                'label' => 'Champ traductible',
-                'type' => 'boolean',
-                'default' => false,
-                'boolean_yes_label' => 'Ce champ peut être traduit',
-                'help' => 'Si activé, ce champ pourra être traduit dans les différentes langues configurées',
-                'weight' => 25
-            ];
-
-            return $options;
+            $polylang_options = get_option('polylang');
+            $post_types = $polylang_options['post_types'] ?? [];
+            return in_array($post_type, $post_types);
         }
 
         /**
-         * Gère la sauvegarde d'un champ via l'API REST
-         * C'est cette méthode qui est appelée lors de la sauvegarde d'un champ
-         * dans l'interface d'administration de Pods
-         * @param mixed $result Résultat actuel de la requête
-         * @param WP_REST_Server $server Serveur REST
-         * @param WP_REST_Request $request Requête REST
-         * @return mixed Résultat modifié
-         */
-        public function handle_field_save($result, $server, $request): mixed
-        {
-            $route = $request->get_route();
-
-            // Vérifie si c'est une requête POST sur un champ Pods
-            if (preg_match('#^/pods/v1/fields/(\d+)$#', $route, $matches) && $request->get_method() === 'POST') {
-                $params = $request->get_json_params();
-
-                // Si on a les données nécessaires
-                if (!empty($params['pod_id']) && !empty($params['name'])) {
-                    $pod = pods_api()->load_pod(['id' => $params['pod_id']]);
-
-                    if ($pod) {
-                        $field_name = $params['name'];
-                        $is_translatable = !empty($params['args']['is_translatable']);
-
-                        // On met à jour la configuration avec la nouvelle valeur du champ
-                        $this->update_field_translation_config($pod['name'], $field_name, $is_translatable);
-                    }
-                }
-            }
-
-            return $result;
-        }
-
-        /**
-         * Met à jour la configuration de traduction pour un champ spécifique
+         * Récupère les champs non traduisibles depuis un pod
          *
-         * @param string $pod_name Nom du pod
-         * @param string $field_name Nom du champ
-         * @param bool $is_translatable Indique si le champ est traduisible
-         * @return array Configuration mise à jour
+         * @param array $pod Le pod chargé
+         * @return array Liste des noms de champs non traduisibles
          */
-        private function update_field_translation_config($pod_name, $field_name, $is_translatable): array
+        private function get_non_translatable_fields_from_pod(array $pod): array
         {
-            // Récupère la configuration existante
-            $config = get_transient('_mwc_translation_config_cache');
-            if (!$config) {
-                $config = get_option('_mwc_translation_config', [
-                    'pods' => [],
-                    'fields' => [],
-                    'all_pod_fields' => []
-                ]);
+            $non_translatable_fields = [];
+
+            // Si le pod n'a pas de champs, retourner un tableau vide
+            if (empty($pod['fields'])) {
+                return $non_translatable_fields;
             }
 
-            // Met à jour la configuration pour ce champ spécifique
-            $config['fields'][$field_name] = [
-                'pod' => $pod_name,
-                'translatable' => $is_translatable
-            ];
+            // Parcourir tous les champs du pod
+            foreach ($pod['fields'] as $field) {
+                // Vérifier si le champ n'est pas traduisible (is_translatable = 0 ou absent)
+                $is_translatable = isset($field['options']['is_translatable']) ?
+                    filter_var($field['options']['is_translatable'], FILTER_VALIDATE_BOOLEAN) :
+                    false;
 
-            // Met à jour la configuration pour tous les champs
-            $config['all_pod_fields'][$field_name] = [
-                'pod' => $pod_name,
-                'translatable' => $is_translatable,
-                'action' => $is_translatable ? 'translate' : 'copy'
-            ];
+                if (!$is_translatable) {
+                    $non_translatable_fields[] = $field['name'];
 
-            // Vérifie si le pod a au moins un champ traduisible
-            $pod_has_translatable = false;
-            foreach ($config['fields'] as $f_name => $f_data) {
-                if ($f_data['pod'] === $pod_name && $f_data['translatable']) {
-                    $pod_has_translatable = true;
-                    break;
+                    // Ajouter également le nom interne du champ Pods pour la compatibilité
+                    $non_translatable_fields[] = '_pods_' . $field['name'];
                 }
             }
 
-            // Met à jour le statut du pod
-            if ($pod_has_translatable) {
-                $config['pods'][$pod_name] = true;
-            } else {
-                // Si aucun champ n'est traduisible, on retire le pod
-                unset($config['pods'][$pod_name]);
-            }
-
-            // Sauvegarde la configuration
-            update_option('_mwc_translation_config', $config);
-            set_transient('_mwc_translation_config_cache', $config, 3600);
-
-            // Régénère le fichier wpml-config.xml
-            $this->generate_wpml_config($config);
-
-            return $config;
-        }
-
-        /**
-         * Ajoute un drapeau emoji à côté des champs traduisibles dans l'admin Pods.
-         * @param string $label Label du champ
-         * @param string $name Nom du champ
-         * @param array|null $options Options du champ
-         * @return string Label modifié
-         */
-        public function add_translation_flag_to_label($label, $name, $options = null): string
-        {
-            if (!function_exists('pll_current_language')) {
-                return $label;
-            }
-
-            $translatable_fields = $this->get_translatable_fields();
-            if (in_array($name, $translatable_fields)) {
-                $flag_emoji = $this->get_flag_emoji(pll_current_language());
-                return $label . ' ' . $flag_emoji;
-            }
-
-            return $label;
-        }
-
-        /**
-         * Envoie toutes les traductions d'un post dans la corbeille.
-         *
-         * @param int $post_id ID du post supprimé
-         * @return void
-         */
-        public function delete_linked_translations(int $post_id): void
-        {
-            if (!function_exists('pll_get_post_translations')) {
-                return;
-            }
-
-            if (self::$isProcessingTrash) {
-                return;
-            }
-
-            self::$isProcessingTrash = true;
-
-            try {
-                $translations = pll_get_post_translations($post_id);
-
-                if (!empty($translations) && is_array($translations)) {
-                    foreach ($translations as $translated_post_id) {
-                        if ($translated_post_id != $post_id && get_post_status($translated_post_id) !== 'trash') {
-                            wp_trash_post($translated_post_id);
-                        }
-                    }
-                }
-            } finally {
-                self::$isProcessingTrash = false;
-            }
-        }
-
-        /**
-         * Restaure toutes les traductions associées lorsqu'un post est restauré.
-         *
-         * @param int $post_id ID du post restauré
-         * @return void
-         */
-        public function restore_linked_translations($post_id): void
-        {
-            // Vérifie si Polylang est actif
-            if (!function_exists('pll_get_post_translations')) {
-                return;
-            }
-
-            // Éviter une boucle infinie sur la suppression
-            if (self::$isProcessingUntrash) {
-                return;
-            }
-
-            self::$isProcessingUntrash = true;
-
-            try {
-                // Récupère toutes les traductions du post
-                $translations = pll_get_post_translations($post_id);
-
-                if (!empty($translations) && is_array($translations)) {
-                    foreach ($translations as $translated_post_id) {
-                        // Évite de restaurer le post d'origine
-                        if ($translated_post_id == $post_id) {
-                            continue;
-                        }
-
-                        // Vérifie si le post est bien dans la corbeille
-                        $translated_post = get_post($translated_post_id);
-                        if ($translated_post && $translated_post->post_status === 'trash') {
-                            wp_untrash_post($translated_post_id);
-                        }
-                    }
-                }
-            } finally {
-                // Réinitialise le flag une fois terminé
-                self::$isProcessingUntrash = false;
-            }
-        }
-
-        /**
-         * Vide le cache de la configuration des traductions
-         * @return true
-         */
-        public function clear_translation_config_cache(): true
-        {
-            // Supprime simplement le cache transient
-            delete_transient('_mwc_translation_config_cache');
-            return true;
-        }
-
-        /**
-         * Génère le fichier wpml-config.xml basé sur la configuration des champs traduisibles
-         * Version optimisée qui n'inclut pas les champs en mode 'copy' lorsque tous les champs
-         * d'un pod sont en mode 'copy'
-         *
-         * @param null $config Configuration des traductions (optional)
-         * @return bool Succès ou échec de la génération du fichier
-         * @throws DOMException
-         */
-        private function generate_wpml_config($config = null): bool
-        {
-            // Si la configuration n'est pas fournie, on la récupère
-            if ($config === null) {
-                $config = get_transient('_mwc_translation_config_cache');
-
-                if (!$config) {
-                    $config = get_option('_mwc_translation_config', [
-                        'pods' => [],
-                        'fields' => [],
-                        'all_pod_fields' => []
-                    ]);
-                }
-            }
-
-            // Commence à construire le XML
-            $xml = new DOMDocument('1.0', 'UTF-8');
-            $xml->formatOutput = true;
-
-            // Élément racine
-            $root = $xml->createElement('wpml-config');
-            $xml->appendChild($root);
-
-            // Section custom-fields
-            $customFields = $xml->createElement('custom-fields');
-            $root->appendChild($customFields);
-
-            // Organiser les champs par pod
-            $fields_by_pod = [];
-            $translatable_pods = [];
-
-            if (isset($config['all_pod_fields']) && !empty($config['all_pod_fields'])) {
-                foreach ($config['all_pod_fields'] as $field_name => $field_data) {
-                    $pod_name = $field_data['pod'];
-
-                    if (!isset($fields_by_pod[$pod_name])) {
-                        $fields_by_pod[$pod_name] = [
-                            'translate' => [],
-                            'copy' => []
-                        ];
-                    }
-
-                    if ($field_data['action'] === 'translate') {
-                        $fields_by_pod[$pod_name]['translate'][$field_name] = $field_data;
-                        $translatable_pods[$pod_name] = true;
-                    } else {
-                        $fields_by_pod[$pod_name]['copy'][$field_name] = $field_data;
-                    }
-                }
-            }
-
-            // Ajouter les champs au XML
-            foreach ($fields_by_pod as $pod_name => $pod_fields) {
-                // Si le pod a au moins un champ traduisible
-                if (!empty($pod_fields['translate'])) {
-                    // Ajouter tous les champs traduisibles
-                    foreach ($pod_fields['translate'] as $field_name => $field_data) {
-                        $field = $xml->createElement('custom-field');
-                        $field->setAttribute('action', 'translate');
-                        $field->appendChild($xml->createTextNode($field_name));
-                        $customFields->appendChild($field);
-                    }
-
-                    // Ajouter tous les champs non-traduisibles (copy)
-                    foreach ($pod_fields['copy'] as $field_name => $field_data) {
-                        $field = $xml->createElement('custom-field');
-                        $field->setAttribute('action', 'copy');
-                        $field->appendChild($xml->createTextNode($field_name));
-                        $customFields->appendChild($field);
-                    }
-                }
-                // Si tous les champs sont en mode 'copy', on ne les inclut pas dans le XML
-            }
-
-            // Section custom-types
-            $customTypes = $xml->createElement('custom-types');
-            $root->appendChild($customTypes);
-
-            // Ajoute chaque type de pod qui a au moins un champ traduisible
-            foreach ($translatable_pods as $pod_name => $value) {
-                $type = $xml->createElement('custom-type');
-                $type->setAttribute('translate', '1');
-                $type->appendChild($xml->createTextNode($pod_name));
-                $customTypes->appendChild($type);
-            }
-
-            // Définit le chemin du fichier wpml-config.xml
-            $file_path = plugin_dir_path(dirname(__FILE__)) . 'wpml-config.xml';
-
-            // Tente d'écrire le fichier
-            $success = $xml->save($file_path);
-
-            if ($success) {
-                // Ajoute un message dans le journal
-                error_log('Le fichier wpml-config.xml a été généré avec succès.');
-
-                // Si le fichier doit être lisible par le serveur web, ajustez les permissions
-                chmod($file_path, 0644);
-
-                return true;
-            } else {
-                error_log('Échec de la génération du fichier wpml-config.xml.');
-                return false;
-            }
-        }
-
-        /**
-         * Récupère la liste des champs Pods traduisibles depuis la configuration.
-         * @return array Liste des champs traduisibles
-         */
-        private function get_translatable_fields(): array
-        {
-            $config = get_option('_mwc_translation_config', []);
-            $translatable_fields = [];
-
-            if (isset($config['fields'])) {
-                foreach ($config['fields'] as $field_name => $field_data) {
-                    if ($field_data['translatable'] === true) {
-                        $translatable_fields[] = $field_name;
-                    }
-                }
-            }
-
-            return $translatable_fields;
+            return $non_translatable_fields;
         }
 
         /**
          * Retourne l'emoji du drapeau en fonction du code de langue.
          */
-        private function get_flag_emoji($lang) {
+        private function get_flag_emoji(string $lang) {
             $flags = [
                 'fr' => '🇫🇷',
                 'en' => '🇬🇧',
@@ -536,198 +156,707 @@ if (!class_exists('MWC_Translation_Manager')) {
         }
 
         /**
-         * Ajoute une entrée dans le menu des paramètres de WordPress pour gérer les traductions
-         * @return void
+         * Ajoute l'option de traduction dans l'interface de configuration des champs Pods dans l'admin
+         * Uniquement pour les types de posts synchronisés avec Polylang
+         *
+         * @param array $options Les options actuelles du champ
+         * @return array Les options modifiées
          */
-        public function add_admin_menu(): void
+        public function add_translation_option($options, $pod = null): array
         {
-            add_submenu_page(
-                'options-general.php',
-                'MWC Traductions',
-                'MWC Traductions',
-                'manage_options',
-                'mwc-translation-settings',
-                [$this, 'render_admin_page']
-            );
+            // Vérifie si Polylang est actif
+            if (!function_exists('pll_languages_list')) {
+                return $options;
+            }
+
+            // Vérifie si le pod actuel est un type de publication valide
+            $pod_name = $pod['name'] ?? '';
+            if (empty($pod_name)) {
+                return $options;
+            }
+
+            // Vérifie si le type de publication est traduisible
+            if (!$this->is_post_type_translatable($pod_name)) {
+                return $options;
+            }
+
+            $options['basic'][] = [
+                'name' => 'is_translatable',
+                'label' => 'Champ traductible',
+                'type' => 'boolean',
+                'default' => false,
+                'boolean_yes_label' => 'Ce champ peut être traduit',
+                'help' => 'Si activé, ce champ pourra être traduit dans les différentes langues configurées',
+                'weight' => 25
+            ];
+
+            return $options;
         }
 
         /**
-         * Affiche la page d'administration pour gérer les traductions
-         * @return void
+         * Gère les requêtes REST pour les champs Pods
+         *
+         * @param mixed $result Résultat de la requête
+         * @param WP_REST_Server $server Instance du serveur REST
+         * @param WP_REST_Request $request Requête REST
+         * @return mixed Le résultat non modifié
          */
-        public function render_admin_page(): void
+        public function handle_rest_requests($result, $server, $request): mixed
         {
-            echo '<div class="wrap">';
-            echo '<h1>MWC Traductions</h1>';
+            $route = $request->get_route();
+            $method = $request->get_method();
 
-            $this->render_translation_status();
+            // Uniquement traiter les modifications de champs
+            if (preg_match('#^/pods/v1/fields/(\d+)($|\?)#', $route, $matches) && $method === 'POST') {
+                $params = $request->get_json_params();
 
-            echo '<div class="refresh-info notice notice-info inline" style="margin: 20px 0; padding: 10px 15px; border-left-color: #2271b1;">';
-            echo '<h3 style="margin-top: 0;">"Rafraîchir la configuration" ?</h3>';
-            echo '<p>Ce bouton permet de :</p>';
-            echo '<ul style="list-style-type: disc; margin-left: 20px;">';
-            echo '<li>Scanner tous les pods et leurs champs pour détecter ceux qui sont marqués comme traduisibles</li>';
-            echo '<li>Mettre à jour le cache interne des traductions</li>';
-            echo '<li>Régénérer le fichier wpml-config.xml utilisé par Polylang pour gérer les traductions</li>';
-            echo '</ul>';
-            echo '<p><strong>Quand l\'utiliser ?</strong> Si vous avez créé de nouveaux pods ou modifié manuellement des configurations de traduction, ou si vous constatez des problèmes avec les traductions.</p>';
-            echo '</div>';
+                if (!empty($params['pod_id']) && isset($params['args']['is_translatable'])) {
+                    try {
+                        $pod_id = $params['pod_id'];
+                        $field_name = $params['name'] ?? '';
+                        $is_translatable = !empty($params['args']['is_translatable']);
 
-            // Formulaire pour rafraîchir la configuration
-            echo '<form method="post" action="">';
-            echo '<input type="hidden" name="mwc_clear_cache" value="1">';
-            submit_button('Rafraîchir la configuration');
-            echo '</form>';
-
-            echo '</div>'; // .wrap
-
-            if (isset($_POST['mwc_clear_cache'])) {
-                $this->rebuild_all_translation_config();
-                update_option('mwc_translations_initialized', 'yes');
-                echo '<div class="updated"><p>Configuration des traductions reconstruite et cache vidé.</p></div>';
-                echo '<script>window.location.reload();</script>'; // Recharge la page pour afficher les modifications
+                        // On met à jour le cache pour ce champ spécifique
+                        $this->update_field_in_cache($pod_id, $field_name, $is_translatable);
+                    } catch (Exception $e) {
+                        error_log("MWC_Translation_Manager - Erreur lors de la mise à jour du cache: " . $e->getMessage());
+                    }
+                } else {
+                    error_log("MWC_Translation_Manager - Données insuffisantes pour la mise à jour du cache");
+                }
             }
+            return $result;
         }
 
         /**
-         * Affiche la configuration actuelle des traductions
-         * @return void
+         * Mise à jour directe d'un champ spécifique dans le cache
+         *
+         * @param int $pod_id ID du pod
+         * @param string $field_name Nom du champ
+         * @param bool $is_translatable Si le champ est traduisible
          */
-        private function render_translation_status() {
-            // Récupère la configuration actuelle
-            $config = get_transient('_mwc_translation_config_cache');
-            if (!$config) {
-                $config = get_option('_mwc_translation_config', [
-                    'pods' => [],
-                    'fields' => [],
-                    'all_pod_fields' => []
-                ]);
+        public function update_field_in_cache($pod_id, $field_name, $is_translatable): void
+        {
+            if (empty($field_name)) {
+                error_log("MWC_Translation_Manager - Nom de champ vide, impossible de mettre à jour le cache");
+                return;
             }
 
-            // Organiser les champs par pod
-            $fields_by_pod = $this->get_fields_organized_by_pod($config);
+            try {
+                // Récupérer le pod pour obtenir son nom
+                $pod = pods_api()->load_pod(['id' => $pod_id]);
 
-            // Afficher la configuration actuelle
-            if (!empty($fields_by_pod)) {
-                echo '<div class="translation-status" style="margin: 20px 0; max-width: 100%;">';
-                echo '<h2>Configuration actuelle des traductions</h2>';
-                echo '<p>Cette section affiche tous les pods et leur statut de traduction. Les pods qui n\'ont pas de champs traduisibles ne seront pas inclus dans le fichier WPML/Polylang.</p>';
-
-                echo '<div class="pods-accordion" style="margin-top: 20px;">';
-
-                // Pour chaque pod
-                foreach ($fields_by_pod as $pod_name => $pod_fields) {
-                    $this->render_pod_item($pod_name, $pod_fields);
+                if (empty($pod) || empty($pod['name'])) {
+                    error_log("MWC_Translation_Manager - Pod ID {$pod_id} introuvable, impossible de mettre à jour le cache");
+                    return;
                 }
 
-                echo '</div>'; // .pods-accordion
-                echo '</div>'; // .translation-status
+                $pod_name = $pod['name'];
 
-                // Ajouter le script JavaScript pour l'accordéon
-                $this->render_accordion_script();
-            } else {
-                echo '<div class="notice notice-warning"><p>Aucune configuration de traduction trouvée. Cliquez sur "Rafraîchir la configuration" pour scanner tous les pods.</p></div>';
+                // Vérifier si le pod est traduisible
+                if (!$this->is_post_type_translatable($pod_name)) {
+                    error_log("MWC_Translation_Manager - Pod {$pod_name} non traduisible, aucune mise à jour du cache");
+                    return;
+                }
+
+                // Récupérer le cache actuel
+                $cache = get_option(self::CACHE_KEY, []);
+
+                // Initialiser l'entrée pour ce pod si elle n'existe pas
+                if (!isset($cache[$pod_name])) {
+                    $cache[$pod_name] = [];
+                }
+
+                // Noms des champs dans le cache (avec et sans préfixe _pods_)
+                $field_keys = [$field_name, '_pods_' . $field_name];
+
+                if ($is_translatable) {
+                    // Si le champ est traduisible, le retirer du cache
+                    foreach ($field_keys as $key) {
+                        $index = array_search($key, $cache[$pod_name]);
+                        if ($index !== false) {
+                            unset($cache[$pod_name][$index]);
+                        }
+                    }
+                    $cache[$pod_name] = array_values($cache[$pod_name]); // Réindexer le tableau
+                } else {
+                    // Si le champ n'est pas traduisible, l'ajouter au cache s'il n'y est pas déjà
+                    foreach ($field_keys as $key) {
+                        if (!in_array($key, $cache[$pod_name])) {
+                            $cache[$pod_name][] = $key;
+                        }
+                    }
+                }
+
+                // Sauvegarder le cache mis à jour
+                update_option(self::CACHE_KEY, $cache, false);
+            } catch (Exception $e) {
+                error_log("MWC_Translation_Manager - Erreur lors de la mise à jour du champ dans le cache: " . $e->getMessage());
+            }
+        }
+
+
+        /**
+         * Intercepte la sauvegarde des options Polylang via AJAX
+         * On indique juste qu'une modification a eu lieu sur les paramètres Polylang mais on n'interfère pas avec la requête Ajax
+         * Le traitement aura lieu via le hook init au prochain chargement d'un page de l'admin
+         */
+        public function intercept_polylang_options_save(): void
+        {
+            error_log('MWC_Translation_Manager - Interception de la sauvegarde des options Polylang');
+
+            // Marquer que les options ont changé
+            update_option(self::OPTION_POLYLANG_CHANGED, time(), false);
+        }
+
+        /**
+         * Vérifie si les options Polylang ont changé en comparant les timestamps
+         */
+        public function check_polylang_options_changed(): void
+        {
+            // Vérifier si nous avons une notification qu'un changement a eu lieu
+            $polylang_changed = get_option(self::OPTION_POLYLANG_CHANGED, false);
+
+            if ($polylang_changed) {
+                error_log('MWC_Translation_Manager - Changement des options Polylang détecté');
+
+                // Réinitialiser le drapeau
+                delete_option(self::OPTION_POLYLANG_CHANGED);
+
+                // Reconstruire le cache
+                $this->rebuild_cache_for_selected_pods();
             }
         }
 
         /**
-         * Organise les champs par pod et type d'action (translate/copy)
-         * @param array $config Configuration des traductions
-         * @return array Tableau organisé des champs par pod
+         * Reconstruit le cache pour tous les pods sélectionnés dans les paramètres de Polylang
          */
-        private function get_fields_organized_by_pod($config) {
-            $fields_by_pod = [];
+        public function rebuild_cache_for_selected_pods(): void
+        {
+            if (!function_exists('pods_api') || !class_exists('PodsAPI')) {
+                return;
+            }
 
-            if (isset($config['all_pod_fields']) && !empty($config['all_pod_fields'])) {
-                foreach ($config['all_pod_fields'] as $field_name => $field_data) {
-                    $pod_name = $field_data['pod'];
+            try {
+                // Récupérer les pods traduisibles selon Polylang
+                $polylang_options = get_option('polylang');
+                $translatable_post_types = $polylang_options['post_types'] ?? [];
 
-                    if (!isset($fields_by_pod[$pod_name])) {
-                        $fields_by_pod[$pod_name] = [
-                            'translate' => [],
-                            'copy' => []
-                        ];
-                    }
+                if (empty($translatable_post_types)) {
+                    // Si aucun type n'est traduisible, on vide le cache
+                    delete_option(self::CACHE_KEY);
+                    return;
+                }
 
-                    if ($field_data['action'] === 'translate') {
-                        $fields_by_pod[$pod_name]['translate'][$field_name] = $field_data;
+                // Récupérer le cache actuel ou créer un nouveau
+                $cache = get_option(self::CACHE_KEY, []);
+
+                // Récupérer tous les podss
+                $api = pods_api();
+                $all_pods = $api->load_pods();
+
+                // Pour chaque pod traduisible, mettre à jour le cache
+                foreach ($all_pods as $pod) {
+                    $pod_name = $pod['name'];
+
+                    if (in_array($pod_name, $translatable_post_types)) {
+                        $cache[$pod_name] = $this->get_non_translatable_fields_from_pod($pod);
                     } else {
-                        $fields_by_pod[$pod_name]['copy'][$field_name] = $field_data;
+                        // Supprimer du cache les pods qui ne sont plus traduisibles
+                        if (isset($cache[$pod_name])) {
+                            unset($cache[$pod_name]);
+                        }
                     }
+                }
+
+                // Sauvegarder le cache mis à jour
+                update_option(self::CACHE_KEY, $cache, false);
+            } catch (Exception $e) {
+                error_log('MWC_Translation_Manager - Erreur lors de la reconstruction du cache: ' . $e->getMessage());
+            }
+        }
+
+        /**
+         * Ajoute un drapeau emoji à côté des champs traduisibles dans l'admin Pods.
+         * @param string $label Label du champ
+         * @param string $name Nom du champ
+         * @param array|null $options Options du champ
+         * @return string Label modifié
+         */
+        public function add_translation_flag_to_label($label, $name, $options = null): string
+        {
+            if (!function_exists('pll_current_language')) {
+                return $label;
+            }
+
+            // Récupérer le post type actuel
+            $post_type = get_post_type();
+            if (!$post_type) {
+                // Essayer de détecter le pod depuis l'URL
+                global $pagenow;
+                if ($pagenow === 'admin.php' && isset($_GET['page']) && $_GET['page'] === 'pods-edit-pod' && isset($_GET['id'])) {
+                    $pod_id = intval($_GET['id']);
+                    $pod = pods_api()->load_pod(['id' => $pod_id]);
+                    $post_type = $pod['name'] ?? '';
+                }
+
+                if (!$post_type) {
+                    return $label;
                 }
             }
 
-            return $fields_by_pod;
+            // Vérifier si le type de post est traduisible
+            if (!$this->is_post_type_translatable($post_type)) {
+                return $label;
+            }
+
+            // Récupérer le cache
+            $cache = get_option(self::CACHE_KEY, []);
+
+            // Si le champ n'est pas dans la liste des champs non traduisibles, on affiche le drapeau
+            if (isset($cache[$post_type]) && !in_array($name, $cache[$post_type])) {
+                $current_lang = pll_current_language();
+                $flag_emoji = $this->get_flag_emoji($current_lang);
+                return $label . ' ' . $flag_emoji;
+            }
+
+            return $label;
         }
 
         /**
-         * Affiche un élément pod avec ses champs
-         * @param string $pod_name Nom du pod
-         * @param array $pod_fields Tableau des champs du pod
+         * Ajoute à la liste des méta-données à synchroniser tous les champs Pods non traduisibles
+         *
+         * @param array $metas Les métadonnées à synchroniser
+         * @param bool $sync Si true, on est en mode synchronisation, sinon en mode copie
+         * @param int $from ID du post source
+         * @param int $to ID du post de destination
+         * @param string $lang Code de la langue de destination
+         * @return array Liste mise à jour des métadonnées à synchroniser
          */
-        private function render_pod_item($pod_name, $pod_fields): void
+        public function copy_post_metas($metas, $sync = false, $from = null, $to = null, $lang = null): array
         {
-            $has_translatable = !empty($pod_fields['translate']);
-            $status_class = $has_translatable ? 'pod-translatable' : 'pod-not-translatable';
-            $status_icon = $has_translatable ? '🌐' : '⛔';
-            $status_text = $has_translatable ? 'Traduisible' : 'Non traduisible';
-
-            echo '<div class="pod-item '.$status_class.'" style="margin-bottom: 10px; border: 1px solid #ccc; border-radius: 5px; overflow: hidden;">';
-            echo '<div class="pod-header" style="padding: 10px 15px; background-color: ' . ($has_translatable ? '#e7f7f4' : '#f7f7f7') . '; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">';
-            echo '<h3 style="margin: 0; padding: 0;">' . esc_html($pod_name) . ' <span style="font-weight: normal; font-size: 14px;">(' . count($pod_fields['translate']) + count($pod_fields['copy']) . ' champs)</span></h3>';
-            echo '<span class="pod-status" style="font-size: 14px; ' . ($has_translatable ? 'color: #0073aa;' : 'color: #999;') . '">' . $status_icon . ' ' . $status_text . ' <span class="dashicons dashicons-arrow-down-alt2"></span></span>';
-            echo '</div>';
-
-            echo '<div class="pod-fields" style="display: none; padding: 15px; background-color: #fff;">';
-
-            // Section des champs traduisibles
-            if (!empty($pod_fields['translate'])) {
-                $this->render_field_list($pod_fields['translate'], 'Champs traduisibles', '🔤', '#0073aa');
+            // Vérifier si les paramètres from et to sont disponibles
+            if (empty($from)) {
+                return $metas;
             }
 
-            // Section des champs non traduisibles
-            if (!empty($pod_fields['copy'])) {
-                $this->render_field_list($pod_fields['copy'], 'Champs non traduisibles (copiés)', '🔢', '#999', '#777');
+            // Récupérer le type de post
+            $post_type = get_post_type($from);
+
+            // Vérifier si le type de post est traduisible
+            if (!$this->is_post_type_translatable($post_type)) {
+                return $metas;
             }
 
-            echo '</div>'; // .pod-fields
-            echo '</div>'; // .pod-item
+            // Récupérer les champs non traduisibles depuis le cache
+            $cache = get_option(self::CACHE_KEY, []);
+            $non_translatable_fields = $cache[$post_type] ?? [];
+
+            // Si le cache est vide pour ce type de post, essayer de le reconstruire
+            if (empty($non_translatable_fields)) {
+                error_log("MWC_Translation_Manager - Cache vide pour {$post_type}, tentative de reconstruction");
+
+                // Charger le pod et reconstruire le cache pour ce type
+                try {
+                    $pod = pods_api()->load_pod(['name' => $post_type]);
+                    if ($pod) {
+                        $this->update_pod_cache($pod);
+                        // Recharger le cache après la mise à jour
+                        $cache = get_option(self::CACHE_KEY, []);
+                        $non_translatable_fields = $cache[$post_type] ?? [];
+                    }
+                } catch (Exception $e) {
+                    error_log("MWC_Translation_Manager - Erreur lors de la reconstruction du cache: " . $e->getMessage());
+                }
+            }
+
+            // Fusionner avec la liste existante
+            return array_merge($metas, $non_translatable_fields);
         }
 
         /**
-         * Affiche une liste de champs
-         * @param array $fields Liste des champs à afficher
-         * @param string $title Titre de la section
-         * @param string $icon Icône à afficher
-         * @param string $title_color Couleur du titre
-         * @param string $text_color Couleur du texte (optionnel)
+         * Permet de copier les fields de type relation lors de la création d'une traduction
+         * Hack mis en place pour corriger le problème de Pods et Polylang : https://github.com/pods-framework/pods/issues/7415
+         *
+         * @param string $post_type Type de publication
+         * @param WP_Post $post Objet post
          */
-        private function render_field_list($fields, $title, $icon, $title_color, $text_color = ''): void
+        public function setup_translation_relations($post_type, $post): void
         {
-            echo '<div class="fields-list" style="margin-bottom: 15px;">';
-            echo '<h4 style="margin-top: 0; color: ' . $title_color . ';">' . $icon . ' ' . $title . '</h4>';
-            echo '<ul style="margin: 0; padding: 0 0 0 20px;' . ($text_color ? ' color: ' . $text_color . ';' : '') . '">';
-            foreach ($fields as $field_name => $field_data) {
-                echo '<li>' . esc_html($field_name) . '</li>';
+            global $wpdb;
+
+            // Vérifier si nous sommes dans le cas d'une nouvelle traduction
+            if (!isset($_GET['from_post']) || !isset($_GET['new_lang'])) {
+                return;
             }
-            echo '</ul>';
-            echo '</div>';
+
+            $source_post_id = intval($_GET['from_post']);
+            $target_post_id = $post->ID;
+
+            // Des vérifications plus strictes pour éviter les valeurs invalides
+            if ($source_post_id <= 0 || $target_post_id <= 0 || $source_post_id === $target_post_id) {
+                error_log("MWC_Translation_Manager - IDs invalides: source={$source_post_id}, target={$target_post_id}");
+                return;
+            }
+
+            error_log("MWC_Translation_Manager - Nouvelle traduction en cours de création : {$source_post_id} -> {$target_post_id}");
+
+            // Vérifier si des relations existent déjà pour le post cible
+            $existing = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}podsrel WHERE item_id = %d",
+                $target_post_id
+            ));
+
+            // S'il n'y a pas de relations existantes, copier celles du post source
+            if ($existing == 0) {
+                // Récupérer les relations du post source
+                $relations = $wpdb->get_results($wpdb->prepare(
+                    "SELECT * FROM {$wpdb->prefix}podsrel WHERE item_id = %d",
+                    $source_post_id
+                ));
+
+                // Copier les relations, mais uniquement si elles sont valides
+                foreach ($relations as $relation) {
+                    // Vérifier que toutes les valeurs nécessaires sont valides
+                    if ($relation->pod_id <= 0 || $relation->field_id <= 0 || $relation->related_item_id <= 0) {
+                        error_log("MWC_Translation_Manager - Relation invalide ignorée: " . print_r($relation, true));
+                        continue;
+                    }
+
+                    $wpdb->insert(
+                        "{$wpdb->prefix}podsrel",
+                        [
+                            'pod_id' => $relation->pod_id,
+                            'field_id' => $relation->field_id,
+                            'item_id' => $target_post_id,
+                            'related_pod_id' => $relation->related_pod_id,
+                            'related_field_id' => $relation->related_field_id,
+                            'related_item_id' => $relation->related_item_id,
+                            'weight' => $relation->weight
+                        ]
+                    );
+
+                    error_log("MWC_Translation_Manager - Relation copiée: item_id={$target_post_id}, related_item_id={$relation->related_item_id}");
+                }
+            }
+
+            // Nous gérons aussi les relations inverses, mais avec des vérifications strictes
+            $inverse_relations = $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}podsrel WHERE related_item_id = %d",
+                $source_post_id
+            ));
+
+            foreach ($inverse_relations as $relation) {
+                // Vérifier que toutes les valeurs nécessaires sont valides
+                if ($relation->pod_id <= 0 || $relation->field_id <= 0 || $relation->item_id <= 0) {
+                    error_log("MWC_Translation_Manager - Relation inverse invalide ignorée: " . print_r($relation, true));
+                    continue;
+                }
+
+                // Vérifier si cette relation inverse existe déjà
+                $existing_inverse = $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$wpdb->prefix}podsrel WHERE pod_id = %d AND field_id = %d AND item_id = %d AND related_item_id = %d",
+                    $relation->pod_id, $relation->field_id, $relation->item_id, $target_post_id
+                ));
+
+                if ($existing_inverse == 0) {
+                    $wpdb->insert(
+                        "{$wpdb->prefix}podsrel",
+                        [
+                            'pod_id' => $relation->pod_id,
+                            'field_id' => $relation->field_id,
+                            'item_id' => $relation->item_id,
+                            'related_pod_id' => $relation->related_pod_id,
+                            'related_field_id' => $relation->related_field_id,
+                            'related_item_id' => $target_post_id,
+                            'weight' => $relation->weight
+                        ]
+                    );
+
+                    error_log("MWC_Translation_Manager - Relation inverse copiée: item_id={$relation->item_id}, related_item_id={$target_post_id}");
+                }
+            }
         }
 
         /**
-         * Génère le script JavaScript pour l'accordéon
+         * Synchronise les relations entre toutes les traductions d'un post
+         *
+         * @param int $post_id ID du post
+         * @param WP_Post $post Objet post
+         * @param bool $update Si c'est une mise à jour
+         */
+        public function sync_translation_relations($post_id, $post, $update): void
+        {
+            global $wpdb;
+
+            // Ne pas exécuter pour les auto-save ou les révisions
+            if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) {
+                return;
+            }
+
+            // Ne pas exécuter si le post n'est pas publié
+            if ($post->post_status !== 'publish') {
+                return;
+            }
+
+            // Vérification supplémentaire pour s'assurer que l'ID est valide
+            if ($post_id <= 0) {
+                error_log("MWC_Translation_Manager - ID de post invalide: {$post_id}");
+                return;
+            }
+
+            // Vérifier si Polylang est actif
+            if (!function_exists('pll_get_post_translations')) {
+                return;
+            }
+
+            // Récupérer toutes les traductions du post
+            $translations = pll_get_post_translations($post_id);
+
+            // S'il n'y a qu'une seule traduction (le post lui-même), ne rien faire
+            if (count($translations) <= 1) {
+                return;
+            }
+
+            // Récupérer les relations du post actuel
+            $relations = $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}podsrel WHERE item_id = %d",
+                $post_id
+            ));
+
+            // Récupérer les relations inverses
+            $inverse_relations = $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}podsrel WHERE related_item_id = %d",
+                $post_id
+            ));
+
+            // Pour chaque traduction, mettre à jour les relations
+            foreach ($translations as $lang => $translation_id) {
+                // Ne pas traiter le post actuel
+                if ($translation_id == $post_id || $translation_id <= 0) {
+                    continue;
+                }
+
+                // Supprimer les relations existantes avec vérification
+                $wpdb->delete("{$wpdb->prefix}podsrel", ['item_id' => $translation_id]);
+                $wpdb->delete("{$wpdb->prefix}podsrel", ['related_item_id' => $translation_id]);
+
+                // Copier les relations directes avec vérifications
+                foreach ($relations as $relation) {
+                    // Vérifier que toutes les valeurs nécessaires sont valides
+                    if ($relation->pod_id <= 0 || $relation->field_id <= 0 || $relation->related_item_id <= 0) {
+                        error_log("MWC_Translation_Manager - Relation invalide ignorée pendant la synchronisation: " . print_r($relation, true));
+                        continue;
+                    }
+
+                    $wpdb->insert(
+                        "{$wpdb->prefix}podsrel",
+                        [
+                            'pod_id' => $relation->pod_id,
+                            'field_id' => $relation->field_id,
+                            'item_id' => $translation_id,
+                            'related_pod_id' => $relation->related_pod_id,
+                            'related_field_id' => $relation->related_field_id,
+                            'related_item_id' => $relation->related_item_id,
+                            'weight' => $relation->weight
+                        ]
+                    );
+                }
+
+                // Copier les relations inverses avec vérifications
+                foreach ($inverse_relations as $relation) {
+                    // Vérifier que toutes les valeurs nécessaires sont valides
+                    if ($relation->pod_id <= 0 || $relation->field_id <= 0 || $relation->item_id <= 0) {
+                        error_log("MWC_Translation_Manager - Relation inverse invalide ignorée pendant la synchronisation: " . print_r($relation, true));
+                        continue;
+                    }
+
+                    $wpdb->insert(
+                        "{$wpdb->prefix}podsrel",
+                        [
+                            'pod_id' => $relation->pod_id,
+                            'field_id' => $relation->field_id,
+                            'item_id' => $relation->item_id,
+                            'related_pod_id' => $relation->related_pod_id,
+                            'related_field_id' => $relation->related_field_id,
+                            'related_item_id' => $translation_id,
+                            'weight' => $relation->weight
+                        ]
+                    );
+                }
+            }
+        }
+
+        /**
+         * Nettoie périodiquement les relations orphelines dans la table wp_podsrel
+         *
+         * @since 1.0.0
+         * @access public
          * @return void
          */
-        private function render_accordion_script(): void
+        public function clean_orphaned_relations(): void
         {
-            echo '<script type="text/javascript">
-                    jQuery(document).ready(function($) {
-                        $(".pod-header").click(function() {
-                            $(this).next(".pod-fields").slideToggle("fast");
-                            $(this).find(".dashicons").toggleClass("dashicons-arrow-down-alt2 dashicons-arrow-up-alt2");
-                        });
-                    });
-                </script>';
+            // Ne pas exécuter à chaque chargement d'admin, mais une fois par jour
+            $last_run = get_transient(self::TRANSIENT_CLEANUP);
+
+            if ($last_run !== false) {
+                return;
+            }
+
+            global $wpdb;
+
+            error_log("MWC_Translation_Manager - Nettoyage périodique des relations orphelines");
+
+            // Supprimer les relations où item_id pointe vers un post qui n'existe plus
+            $deleted_items = $wpdb->query("
+                DELETE FROM {$wpdb->prefix}podsrel
+                WHERE item_id > 0
+                AND NOT EXISTS (
+                    SELECT 1 FROM {$wpdb->posts} 
+                    WHERE ID = item_id
+                )
+            ");
+
+            // Supprimer les relations où related_item_id pointe vers un post qui n'existe plus
+            $deleted_related = $wpdb->query("
+                DELETE FROM {$wpdb->prefix}podsrel
+                WHERE related_item_id > 0
+                AND NOT EXISTS (
+                    SELECT 1 FROM {$wpdb->posts} 
+                    WHERE ID = related_item_id
+                )
+            ");
+
+            if ($deleted_items > 0 || $deleted_related > 0) {
+                error_log("MWC_Translation_Manager - Nettoyage terminé : {$deleted_items} relations directes et {$deleted_related} relations inverses orphelines supprimées");
+            }
+
+            // Marquer comme exécuté pour les prochaines 24 heures
+            set_transient(self::TRANSIENT_CLEANUP, time(), DAY_IN_SECONDS);
+        }
+
+        /**
+         * Déplace à la corbeille toutes les traductions d'un post lorsque celui-ci est mis à la corbeille
+         *
+         * @param int $post_id ID du post mis à la corbeille
+         */
+        public function trash_post_translations($post_id): void
+        {
+            // Vérifier si Polylang est actif
+            if (!function_exists('pll_get_post_translations')) {
+                return;
+            }
+
+            // Éviter les appels récursifs en vérifiant si on est déjà en train de traiter une suppression en cascade
+            static $processing_translations = false;
+            if ($processing_translations) {
+                return;
+            }
+
+            // Récupérer toutes les traductions du post
+            $translations = pll_get_post_translations($post_id);
+
+            // S'il n'y a qu'une seule traduction (le post lui-même), ne rien faire
+            if (count($translations) <= 1) {
+                return;
+            }
+
+            // Marquer qu'on est en train de traiter des traductions pour éviter la récursion
+            $processing_translations = true;
+
+            // Récupérer les posts qui sont en cours de suppression dans une action en masse
+            $bulk_posts = [];
+            if (isset($_REQUEST['post']) && is_array($_REQUEST['post'])) {
+                $bulk_posts = array_map('intval', $_REQUEST['post']);
+            }
+
+            error_log("MWC_Translation_Manager - Traitement de la suppression en cascade pour le post {$post_id}");
+
+            // Pour chaque traduction, la mettre à la corbeille si elle n'est pas déjà incluse dans une action en masse
+            foreach ($translations as $lang => $translation_id) {
+                // Ne pas traiter le post actuel
+                if ($translation_id == $post_id) {
+                    continue;
+                }
+
+                // Vérifier si cette traduction est déjà dans la liste des posts à supprimer en masse
+                if (in_array($translation_id, $bulk_posts)) {
+                    error_log("MWC_Translation_Manager - Traduction {$translation_id} ignorée (déjà dans une suppression en masse)");
+                    continue;
+                }
+
+                // Mettre la traduction à la corbeille
+                wp_trash_post($translation_id);
+                error_log("MWC_Translation_Manager - Traduction {$translation_id} mise à la corbeille");
+            }
+
+            // Réinitialiser l'indicateur
+            $processing_translations = false;
+        }
+
+        /**
+         * Restaure toutes les traductions d'un post lorsque celui-ci est restauré de la corbeille
+         *
+         * @param int $post_id ID du post restauré
+         */
+        public function untrash_post_translations($post_id): void
+        {
+            // Vérifier si Polylang est actif
+            if (!function_exists('pll_get_post_translations')) {
+                return;
+            }
+
+            // Éviter les appels récursifs
+            static $processing_translations = false;
+            if ($processing_translations) {
+                return;
+            }
+
+            // Récupérer toutes les traductions du post
+            $translations = pll_get_post_translations($post_id);
+
+            // S'il n'y a qu'une seule traduction (le post lui-même), ne rien faire
+            if (count($translations) <= 1) {
+                return;
+            }
+
+            // Marquer qu'on est en train de traiter des traductions pour éviter la récursion
+            $processing_translations = true;
+
+            // Récupérer les posts qui sont en cours de restauration dans une action en masse
+            $bulk_posts = [];
+            if (isset($_REQUEST['post']) && is_array($_REQUEST['post'])) {
+                $bulk_posts = array_map('intval', $_REQUEST['post']);
+            }
+
+            error_log("MWC_Translation_Manager - Traitement de la restauration en cascade pour le post {$post_id}");
+
+            // Pour chaque traduction, la restaurer si elle n'est pas déjà incluse dans une action en masse
+            foreach ($translations as $lang => $translation_id) {
+                // Ne pas traiter le post actuel
+                if ($translation_id == $post_id) {
+                    continue;
+                }
+
+                // Vérifier si cette traduction est déjà dans la liste des posts à restaurer en masse
+                if (in_array($translation_id, $bulk_posts)) {
+                    error_log("MWC_Translation_Manager - Traduction {$translation_id} ignorée (déjà dans une restauration en masse)");
+                    continue;
+                }
+
+                // Vérifier si la traduction est dans la corbeille
+                $translation_status = get_post_status($translation_id);
+                if ($translation_status === 'trash') {
+                    // Restaurer la traduction
+                    wp_untrash_post($translation_id);
+                    error_log("MWC_Translation_Manager - Traduction {$translation_id} restaurée de la corbeille");
+                } else {
+                    error_log("MWC_Translation_Manager - Traduction {$translation_id} ignorée (pas dans la corbeille)");
+                }
+            }
+
+            // Réinitialiser l'indicateur
+            $processing_translations = false;
         }
     }
 }
