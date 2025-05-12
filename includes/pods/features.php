@@ -174,7 +174,7 @@ return [
                 ],
                 $pod_singular_name . '_positions_by_role' => [
                     'type' => 'pick',
-                    'label' => 'Ordre d\'affichage',
+                    'label' => 'Ordre d\'affichage par rôle',
                     'required' => false,
                     'description' => 'Position lors de l\'affichage.',
                     'pick_object' => 'post_type',
