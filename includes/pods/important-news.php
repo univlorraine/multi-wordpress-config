@@ -136,10 +136,10 @@ return [
                     'description' => 'Couleur de fond de l\'information en page d\'accueil.',
                 ],
                 $pod_singular_name . '_link_url' => [
-                    'type' => 'website',
+                    'type' => 'text',
                     'label' => 'Lien',
                     'required' => false,
-                    'description' => 'Lien du service vers lequel rediriger l\'utilisateur lorsqu\'il clique sur le bouton associé.',
+                    'description' => 'Lien du service vers lequel rediriger l\'utilisateur lorsqu\'il clique sur le bouton associé. Peut être un service interne (exemple : /rss) ou bien un service externe (exemple : https://mon-service.edu).',
                 ],
                 $pod_singular_name . '_statistic_name' => [
                     'type' => 'text',
