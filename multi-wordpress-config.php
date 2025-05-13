@@ -53,17 +53,32 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Inclure Plugin Update Checker
+require_once dirname(__FILE__) . '/plugin-update-checker/plugin-update-checker.php';
+use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
+
+
+// Initialiser le système de mise à jour
+function initialiser_mise_a_jour_plugin() {
+    $myUpdateChecker = PucFactory::buildUpdateChecker(
+        'https://github.com/univlorraine/multi-wordpress-config/',
+        __FILE__,
+        'multi-wordpress-config'
+    );
+
+    // Définir la branche qui contient la version stable
+    $myUpdateChecker->setBranch('main');
+}
+add_action('init', 'initialiser_mise_a_jour_plugin');
+
 /**
  * Classe principale du plugin Multi Wordpress Config
  */
 class Multi_Wordpress_Config {
-    private const VERSION = '0.3.0';
     private const REQUIRED_PLUGINS = [
         'Pods' => 'pods/init.php',
         'Polylang' => 'polylang/polylang.php'
     ];
-
-    private $plugin_name = 'multi-wordpress-config';
     private $disable_defaults;
     private $disable_frontend;
     private $disable_themes;
