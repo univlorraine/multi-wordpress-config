@@ -475,6 +475,45 @@ if (!class_exists('MWC_Translation_Manager')) {
         }
 
         /**
+         * Met à jour le cache pour un pod spécifique
+         *
+         * @param Pod $pod Le pod à mettre à jour dans le cache
+         * @return bool True si la mise à jour a réussi, false sinon
+         */
+        private function update_pod_cache($pod): bool
+        {
+            if (empty($pod) || empty($pod['name'])) {
+                error_log("MWC_Translation_Manager - Pod invalide, impossible de mettre à jour le cache");
+                return false;
+            }
+
+            $pod_name = $pod['name'];
+
+            // Vérifier si le pod est traduisible
+            if (!$this->is_post_type_translatable($pod_name)) {
+                error_log("MWC_Translation_Manager - Pod {$pod_name} non traduisible, aucune mise à jour du cache");
+                return false;
+            }
+
+            try {
+                // Récupérer le cache actuel
+                $cache = get_option(self::CACHE_KEY, []);
+
+                // Mettre à jour l'entrée pour ce pod
+                $cache[$pod_name] = $this->get_non_translatable_fields_from_pod($pod);
+
+                // Sauvegarder le cache mis à jour
+                update_option(self::CACHE_KEY, $cache, false);
+
+                error_log("MWC_Translation_Manager - Cache mis à jour pour le pod {$pod_name}");
+                return true;
+            } catch (Exception $e) {
+                error_log("MWC_Translation_Manager - Erreur lors de la mise à jour du cache pour le pod {$pod_name}: " . $e->getMessage());
+                return false;
+            }
+        }
+
+        /**
          * Permet de copier les fields de type relation lors de la création d'une traduction
          * Hack mis en place pour corriger le problème de Pods et Polylang : https://github.com/pods-framework/pods/issues/7415
          *
