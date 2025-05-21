@@ -85,6 +85,8 @@ return [
                     'description' => 'Tags qui serviront pour la recherche dans les services.',
                     'repeatable' => true,
                     'is_translatable' => true,
+                    'repeatable_format' => 'custom',
+                    'repeatable_format_separator' => ',',
                 ],
                 $pod_singular_name . '_description' => [
                     'type' => 'text',
@@ -98,13 +100,13 @@ return [
                     'required' => false,
                     'description' => 'Nom \'ion-icon\' de l\'icône si aucune n\'est définie dans les blocs SVG ci-dessous.',
                 ],
-                $pod_singular_name . '_svg_light' => [
+                $pod_singular_name . '_icon_svg_light' => [
                     'type' => 'paragraph',
                     'label' => 'Code SVG de l\'icône du thème clair',
                     'required' => false,
                     'description' => 'Code SVG de l\'icône du service affichée avec le thème \'Light\'.',
                 ],
-                $pod_singular_name . '_svg_dark' => [
+                $pod_singular_name . '_icon_svg_dark' => [
                     'type' => 'paragraph',
                     'label' => 'Code SVG de l\'icône du thème sombre',
                     'required' => false,
