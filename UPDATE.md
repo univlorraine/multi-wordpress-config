@@ -1,6 +1,6 @@
 # Procédure de mise à jour
 
-Ce plugin utilise la librairie [plugin-wordpress-config](https://github.com/YahnisElsts/plugin-update-checker) pour proposer la mise à jour automatique aux utilisateurs depuis l'interface de configuration des extensions de Wordpress.
+Ce plugin utilise la librairie [plugin-update-checker](https://github.com/YahnisElsts/plugin-update-checker) pour proposer la mise à jour automatique aux utilisateurs depuis l'interface de configuration des extensions de Wordpress.
 
 Pour procéder à une montée de version de ce plugin, il est nécessaire d'effectuer les étapes suivantes afin de proposer la mise à jour automatique aux utilisateurs :
 
