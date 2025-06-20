@@ -141,6 +141,13 @@ return [
                     'required' => false,
                     'description' => 'Lien du service vers lequel rediriger l\'utilisateur lorsqu\'il clique sur le bouton associé. Peut être un service interne (exemple : /rss) ou bien un service externe (exemple : https://mon-service.edu).',
                 ],
+                $pod_singular_name . '_position' => [
+                    'type' => 'number',
+                    'label' => 'Ordre d\'affichage',
+                    'required' => false,
+                    'description' => 'Position lors de l\'affichage.',
+                    'default_value' => 0,
+                ],
                 $pod_singular_name . '_statistic_name' => [
                     'type' => 'text',
                     'label' => 'Identifiant de la statistique',
