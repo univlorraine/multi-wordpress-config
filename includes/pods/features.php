@@ -122,10 +122,10 @@ return [
                     'pick_object' => 'custom-simple',
                     'pick_format_multi' => 'list',
                     'pick_custom' => [
-                        'Service' => 'Pages des services (Service)',
-                        'Tabs' => 'Onglets en bas de page (Tabs)',
-                        'Top' => 'Barre supérieure (Top)',
-                        'Burger' => 'Menu utilisateur (Burger)',
+                        'service' => 'Pages des services (Service)',
+                        'tabs' => 'Onglets en bas de page (Tabs)',
+                        'top' => 'Barre supérieure (Top)',
+                        'burger' => 'Menu utilisateur (Burger)',
                     ],
                 ],
                 $pod_singular_name . '_access_restriction' => [
