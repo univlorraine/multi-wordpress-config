@@ -84,16 +84,30 @@ return [
                     'description' => 'Nom \'ion-icon\' de l\'icône à afficher.'
                 ],
                 $pod_singular_name . '_icon_svg_light' => [
-                    'type' => 'paragraph',
+                    'type' => 'code',
                     'label' => 'Code SVG de l\'icône du thème clair',
                     'required' => false,
                     'description' => 'Code SVG de l\'icône à afficher pour le thème clair.',
+                    'code_max_length' => '-1',
+                    'code_trim' => true,
+                    'code_trim_lines' => true,
+                    'code_trim_p_brs' => false,
+                    'code_trim_extra_lines' => false,
+                    'code_sanitize_html' => false,
+                    'code_allow_shortcode' => false
                 ],
                 $pod_singular_name . '_icon_svg_dark' => [
-                    'type' => 'paragraph',
+                    'type' => 'code',
                     'label' => 'Code SVG de l\'icône du thème sombre',
                     'required' => false,
                     'description' => 'Code SVG de l\'icône à afficher pour le thème sombre.',
+                    'code_max_length' => '-1',
+                    'code_trim' => true,
+                    'code_trim_lines' => true,
+                    'code_trim_p_brs' => false,
+                    'code_trim_extra_lines' => false,
+                    'code_sanitize_html' => false,
+                    'code_allow_shortcode' => false
                 ],
                 $pod_singular_name . '_statistic_name' => [
                     'type' => 'text',
