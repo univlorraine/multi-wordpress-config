@@ -3,7 +3,7 @@ Contributors: benjhoo
 Tags: headless, wordpress, multi, administration, esup
 Requires at least: 6.0
 Tested up to: 6.8.1
-Stable tag: 0.3.4
+Stable tag: 0.3.5
 License: CeCILL-2.1
 License URI: https://cecill.info/licences/Licence_CeCILL_V2.1-fr.html
 
@@ -13,6 +13,9 @@ Plugin permettant de personnaliser l'administration WordPress pour une utilisati
 Plugin permettant de personnaliser l'administration WordPress pour une utilisation Headless. Développé par l'Université de Lorraine pour l'application ESUP-MULTI.
 
 == Changelog ==
+= 0.3.5 =
+* Suppression valeur par défaut 'filtrable' pour les channels
+
 = 0.3.4 =
 * Modification du type pods pour les icônes SVG
 

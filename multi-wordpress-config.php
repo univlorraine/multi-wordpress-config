@@ -3,7 +3,7 @@
  * Plugin Name: Multi Wordpress Config
  * Plugin URI: https://github.com/univlorraine/multi-wordpress-config
  * Description: Plugin permettant de personnaliser l'administration WordPress pour une utilisation Headless
- * Version: 0.3.4
+ * Version: 0.3.5
  * Author: Benjamin Lemoine
  * Author URI: https://github.com/benjhoo
  * License: CeCILL-2.1
