@@ -103,7 +103,6 @@ return [
                     'boolean_format_type' => 'radio',
                     'boolean_yes_label' => 'Oui',
                     'boolean_no_label' => 'Non',
-                    'default_value' => '1',
                 ],
             ],
         ]
