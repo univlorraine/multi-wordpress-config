@@ -64,6 +64,11 @@ if (!class_exists('MWC_Pods_Manager')) {
             add_action('pods_api_post_save_pod_item', [$this, 'sync_pod_field_with_title'], 10, 3);
             add_filter('pods_admin_setup_edit_options', [$this, 'add_title_sync_option'], 10, 2);
 
+            // Fix pour map_point le champ de relation map_point_category
+            add_filter('pods_field_pick_data', [$this, 'filter_map_point_category_field_data'], 10, 6);
+            add_filter('pods_form_ui_field_pick_value', [$this, 'filter_map_point_category_ui_field_value'], 10, 5);
+            add_action('pods_api_post_save_pod_item_map_points', [$this, 'action_map_point_category_sync_translation'], 10, 3);
+
             // Permet de reconstruire les relations Pods après un import
             // Hack pour palier au problème soulevé auprès de Pods : https://github.com/pods-framework/pods/issues/7415
             add_action('import_end', [$this, 'rebuild_pods_relations_after_import']);
@@ -331,6 +336,122 @@ if (!class_exists('MWC_Pods_Manager')) {
         }
 
         /**
+         * Pour le champ relation map_point_category de map_point.
+         * Filtre les éléments liés pour n'inclure que ceux de la langue courante (Polylang).
+         *
+         * @param array $data
+         * @param string $name
+         * @param $value
+         * @param $options
+         * @param $pod
+         * @param $id
+         * @return array
+         *
+         * @see https://web.archive.org/web/20171124121811/http://hookr.io/plugins/pods-custom-content-types-and-fields/2.5.5/filters/pods_field_pick_data/
+         */
+        public function filter_map_point_category_field_data($data, $name, $value, $options, $pod, $id): array
+        {
+            if ($name !== 'map_point_category' || !function_exists('pll_current_language')) {
+                return $data;
+            }
+
+            $lang = pll_current_language();
+            if (empty($lang) || !is_array($data)) {
+                return $data;
+            }
+
+            foreach($data as $key => $item) {
+                $item_lang = pll_get_post_language($key);
+                if ($item_lang && $item_lang !== $lang) {
+                    unset($data[$key]);
+                }
+            }
+            
+            return $data;
+        }
+
+        /**
+         * Pour le champ relation map_point_category de map_point.
+         * Corrige la valeur présélectionnée par Pods pour qu'elle corresponde à ce qui est stocké en base. (bug Pods)
+         * Ou lors de la création d'une nouvelle traduction, préremplit avec la catégorie traduite.
+         * @param $value
+         * @param string $name
+         * @param $options
+         * @param $field
+         * @param $id
+         * @return mixed
+         * 
+         * @see https://web.archive.org/web/20171124122419/http://hookr.io/plugins/pods-custom-content-types-and-fields/2.5.5/filters/pods_form_ui_field_type_value/
+         */
+        public function filter_map_point_category_ui_field_value($value, $name, $options, $field, $id): mixed
+        {
+            if ($name !== 'map_point_category') {
+                return $value;
+            }
+
+            // Cas 2 : Nouvelle traduction (détection via les paramètres GET de Polylang)
+            if (isset($_GET['from_post']) && isset($_GET['new_lang'])) {
+                $source_post_id = intval($_GET['from_post']);
+                $target_lang = sanitize_text_field($_GET['new_lang']);
+
+                // Récupérer la catégorie du post source
+                $source_category_id = get_post_meta($source_post_id, 'map_point_category', true);
+
+                if (!empty($source_category_id) && function_exists('pll_get_post')) {
+                    // Trouver la traduction de la catégorie dans la langue cible
+                    $translated_category = pll_get_post($source_category_id, $target_lang);
+
+                    if ($translated_category) {
+                        return [$translated_category => $translated_category];
+                    }
+                }
+
+                return $value;
+            }
+
+            // Cas 1 : Édition d'un post existant
+            if ($id) {
+                $stored_value = get_post_meta($id, 'map_point_category', true);
+
+                if (!empty($stored_value)) {
+                    return [$stored_value => $stored_value];
+                }
+            }
+
+            return $value;
+        }
+
+        /**
+         * Pour le pod map_points, synchronise la catégorie liée lors de la sauvegarde d'une traduction (Polylang)
+         * @param array $pieces
+         * @param bool $is_new_item
+         * @param int $id
+         * @return void
+         *
+         * @see https://docs.pods.io/code/action-reference/pods_api_post_save_pod_item_podname/
+         */
+        public function action_map_point_category_sync_translation($pieces, $is_new_item, $id): void {
+            $category_id = get_post_meta($id, 'map_point_category', true);
+
+            if (empty($category_id) || !function_exists('pll_get_post_translations')) {
+                return;
+            }
+
+            $translations = pll_get_post_translations($id);
+            foreach ($translations as $lang => $translation_id) {
+                if ($translation_id == $id) {
+                    continue; // Skip le post actuel
+                }
+
+                // Trouver la traduction correspondante de la catégorie
+                $translated_category = pll_get_post($category_id, $lang);
+                if ($translated_category) {
+                    update_post_meta($translation_id, 'map_point_category', $translated_category);
+                }
+            }
+        }
+
+        /**
          * Reconstruit les relations Pods après un import WordPress
          * S'exécute automatiquement à la fin d'un import via le hook 'import_end'
          * Hack pour palier au problème soulevé auprès de Pods : https://github.com/pods-framework/pods/issues/7415
@@ -467,5 +588,5 @@ if (!class_exists('MWC_Pods_Manager')) {
                 pods_api()->cache_flush_pods();
             }
         }
-    }
+   }
 }

@@ -61,13 +61,20 @@ return [
         'options' => [
             'singleton' => false,
             // Indique quel champ sera utilisé comme titre dans l'interface d'administration (autrement affiche 'brouillon')
-            'title_field' => $pod_singular_name . '_name',
+            'title_field' => $pod_singular_name . '_internal_name',
         ]
     ],
     'pod_fields' => [
         $pod_singular_name . '_fields' => [
             'label' => 'Champs Catégorie de point',
             'fields' => [
+                $pod_singular_name . '_internal_name' => [
+                    'type' => 'text',
+                    'label' => 'Nom interne',
+                    'description' => 'Nom interne de la catégorie de point (non affiché aux utilisateurs)',
+                    'required' => true,
+                    'is_translatable' => false,
+                ],
                 $pod_singular_name . '_name' => [
                     'type' => 'text',
                     'label' => 'Nom',
