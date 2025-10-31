@@ -83,6 +83,9 @@ if (!class_exists('MWC_Translation_Manager')) {
             // Supprime / restaure toutes les traductions associées à un post lors de sa suppression / restauration
             add_action('wp_trash_post', [$this, 'trash_post_translations'], 10, 1);
             add_action('untrash_post', [$this, 'untrash_post_translations'], 10, 1);
+
+            // Répare les liens de traduction Polylang après une importation WordPress
+            add_action('import_end', [$this, 'repair_translations_after_import'], 10, 0);
         }
 
         /**
@@ -896,6 +899,98 @@ if (!class_exists('MWC_Translation_Manager')) {
 
             // Réinitialiser l'indicateur
             $processing_translations = false;
+        }
+
+        /**
+         * Répare les liens de traduction Polylang après un import WordPress
+         */
+        public function repair_translations_after_import() {
+            global $wpdb;
+
+            echo "<h2>Vérification des liens de traduction Polylang</h2>";
+            echo "<p>Cette opération va analyser les groupes de traduction basés sur la taxonomie <code>post_translations</code> et recréer tous les liens de traduction Polylang, corrigeant ainsi les liens manquants.</p>";
+
+            // 1. Récupérer tous les groupes de traduction depuis la taxonomie post_translations
+            $translation_groups = $wpdb->get_results("
+                SELECT t.name as translation_term, tr.object_id as post_id
+                FROM {$wpdb->terms} t
+                JOIN {$wpdb->term_taxonomy} tt ON t.term_id = tt.term_id
+                JOIN {$wpdb->term_relationships} tr ON tt.term_taxonomy_id = tr.term_taxonomy_id
+                WHERE tt.taxonomy = 'post_translations'
+                ORDER BY t.name, tr.object_id
+            ");
+
+            if (empty($translation_groups)) {
+                echo "<p>❌ Aucun terme post_translations trouvé. Rien à traiter.</p>";
+                return;
+            }
+
+            echo "<p>✓ " . count($translation_groups) . " relations de traduction détectées.</p>";
+
+            // 2. Grouper les posts par leur terme de traduction
+            $groups = [];
+            foreach ($translation_groups as $row) {
+                $groups[$row->translation_term][] = $row->post_id;
+            }
+
+            echo "<p>✓ " . count($groups) . " groupes de traduction détectés.</p>";
+
+            // 3. Pour chaque groupe, recréer les liens Polylang
+            $fixed_count = 0;
+            $errors = [];
+
+            echo "<ul style='font-family: monospace;'>";
+
+            foreach ($groups as $term_name => $post_ids) {
+                if (count($post_ids) < 2) {
+                    echo "<li style='color: gray;'>⊘ Groupe '{$term_name}' ignoré (un seul post)</li>";
+                    continue;
+                }
+
+                // Construire le tableau de traductions attendu par Polylang
+                $translations = [];
+                $posts_info = [];
+
+                foreach ($post_ids as $post_id) {
+                    $lang = pll_get_post_language($post_id);
+                    $post_title = get_the_title($post_id);
+
+                    if ($lang) {
+                        $translations[$lang] = $post_id;
+                        $posts_info[] = "{$post_title} [{$lang}] (ID: {$post_id})";
+                    } else {
+                        $errors[] = "Post ID {$post_id} n'a pas de langue assignée !";
+                    }
+                }
+
+                // Sauvegarder les liens de traduction
+                if (count($translations) > 1) {
+                    pll_save_post_translations($translations);
+                    $fixed_count++;
+                    echo "<li style='color: green;'>✓ Groupe '{$term_name}' traité : " . implode(' ↔ ', $posts_info) . "</li>";
+                } else {
+                    echo "<li style='color: orange;'>⚠ Groupe '{$term_name}' incomplet (langues manquantes)</li>";
+                }
+            }
+
+            echo "</ul>";
+
+            // 4. Afficher les erreurs s'il y en a
+            if (!empty($errors)) {
+                echo "<h3 style='color: red;'>Erreurs détectées :</h3><ul>";
+                foreach ($errors as $error) {
+                    echo "<li>{$error}</li>";
+                }
+                echo "</ul>";
+            }
+
+            // 5. Nettoyer le cache de Polylang
+            wp_cache_flush();
+            delete_option('polylang');
+
+            echo "<h3 style='color: green;'>✓ Traitement terminé !</h3>";
+            echo "<p><strong>{$fixed_count} groupes de traduction</strong> ont été traités.</p>";
+            echo "<p style='color: blue;'>ℹ Le cache a été nettoyé.</p>";
         }
     }
 }
