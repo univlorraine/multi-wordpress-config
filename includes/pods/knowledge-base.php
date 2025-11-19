@@ -51,7 +51,7 @@ return [
         'label_singular' => 'Information',
         'label_add_new_item' => 'Nouvelle information',
         'description' => 'Base de connaissance de l\'application Multi',
-        'menu_position' => 13,
+        'menu_position' => 18,
         'wpgraphql_singular_name' => $pod_singular_name,
         'wpgraphql_plural_name' => $pod_name,
         'options' => [
