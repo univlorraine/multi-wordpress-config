@@ -50,7 +50,7 @@ return [
         'label_singular' => 'Icône carte',
         'label_all_items' => 'Icônes carte',
         'description' => 'Icônes pour les points sur la carte de l\'application Multi',
-        'menu_position' => 25,
+        'menu_position' => 102,
         'menu_icon' => 'dashicons-image-filter',
         'menu_location_custom' => 'edit.php?post_type=map_points',
         'show_in_menu' => true,
@@ -92,28 +92,24 @@ return [
                     'label' => 'Largeur',
                     'description' => 'Largeur de l\'icône en pixels',
                     'required' => true,
-                    'default' => 0,
                 ],
                 $pod_singular_name . '_height' => [
                     'type' => 'number',
                     'label' => 'Hauteur',
                     'description' => 'Hauteur de l\'icône en pixels',
                     'required' => true,
-                    'default' => 0,
                 ],
                 $pod_singular_name . '_pos_x' => [
                     'type' => 'number',
                     'label' => 'Position X',
                     'description' => 'Position X du point d\'ancrage de l\'icône',
                     'required' => true,
-                    'default' => 0,
                 ],
                 $pod_singular_name . '_pos_y' => [
                     'type' => 'number',
                     'label' => 'Position Y',
                     'description' => 'Position Y du point d\'ancrage de l\'icône',
                     'required' => true,
-                    'default' => 0,
                 ],
             ]
         ]

@@ -71,7 +71,7 @@ if (!class_exists('MWC_Pods_Manager')) {
 
             // Permet de reconstruire les relations Pods après un import
             // Hack pour palier au problème soulevé auprès de Pods : https://github.com/pods-framework/pods/issues/7415
-            add_action('import_end', [$this, 'rebuild_pods_relations_after_import']);
+            add_action('import_end', [$this, 'rebuild_pods_relations_after_import'], 20);
         }
 
         /**

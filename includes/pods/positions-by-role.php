@@ -50,7 +50,7 @@ return [
         'label_singular' => 'Position par rôle',
         'label_add_new_item' => 'Nouvelle position par rôle',
         'description' => 'Positions par rôle de l\'application Multi.',
-        'menu_position' => 21,
+        'menu_position' => 22,
         'menu_icon' => 'dashicons-sort',
         'wpgraphql_singular_name' => $pod_singular_name,
         'wpgraphql_plural_name' => $pod_name,

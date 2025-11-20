@@ -51,7 +51,7 @@ return [
         'label_add_new_item' => 'Ajouter un point sur la carte',
         'label_all_items' => 'Tous les points sur la carte',
         'description' => 'Points d\'intérêt sur la carte de l\'application Multi',
-        'menu_position' => 22,
+        'menu_position' => 15,
         'menu_icon' => 'dashicons-location-alt',
         'menu_name' => 'Carte',
         'wpgraphql_singular_name' => $pod_singular_name,

@@ -50,12 +50,10 @@ return [
         'label_singular' => 'Campus',
         'label_all_items' => 'Campus',
         'description' => 'Campus sur la carte de l\'application Multi',
-        'menu_position' => 24,
+        'menu_position' => 101,
         'menu_icon' => 'dashicons-building',
         'menu_location_custom' => 'edit.php?post_type=map_points',
-        'show_in_menu' => true,
         'show_in_admin_bar' => false,
-        'show_in_nav_menus' => false,
         'wpgraphql_singular_name' => $pod_singular_name,
         'wpgraphql_plural_name' => $pod_name,
         'options' => [

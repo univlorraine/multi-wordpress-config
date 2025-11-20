@@ -904,7 +904,12 @@ if (!class_exists('MWC_Translation_Manager')) {
         /**
          * Répare les liens de traduction Polylang après un import WordPress
          */
-        public function repair_translations_after_import() {
+        public function repair_translations_after_import(): void {
+            $is_admin_context = is_admin() && !wp_doing_ajax();
+            if (!$is_admin_context) {
+                return;
+            }
+
             global $wpdb;
 
             echo "<h2>Vérification des liens de traduction Polylang</h2>";
@@ -984,9 +989,8 @@ if (!class_exists('MWC_Translation_Manager')) {
                 echo "</ul>";
             }
 
-            // 5. Nettoyer le cache de Polylang
+            // 5. Nettoyer le cache
             wp_cache_flush();
-            delete_option('polylang');
 
             echo "<h3 style='color: green;'>✓ Traitement terminé !</h3>";
             echo "<p><strong>{$fixed_count} groupes de traduction</strong> ont été traités.</p>";

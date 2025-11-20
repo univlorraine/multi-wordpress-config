@@ -50,7 +50,7 @@ return [
         'label_singular' => 'Catégorie de point',
         'label_all_items' => 'Catégories de points',
         'description' => 'Catégories de points sur la carte de l\'application Multi',
-        'menu_position' => 23,
+        'menu_position' => 100,
         'menu_icon' => 'dashicons-category',
         'menu_location_custom' => 'edit.php?post_type=map_points',
         'show_in_menu' => true,
