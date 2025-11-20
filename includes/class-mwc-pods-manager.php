@@ -86,7 +86,8 @@ if (!class_exists('MWC_Pods_Manager')) {
             }
 
             foreach (glob($this->pods_dir . '*.php') as $pod_file) {
-                $pod_data = include_once $pod_file;
+                // On n'utilise pas include_once ici, car on a besoin de l'instance pour la suppression des pods à la désactivation du plugin
+                $pod_data = include $pod_file;
 
                 if (is_array($pod_data) && isset($pod_data['pod_config']) && isset($pod_data['pod_fields']) && isset($pod_data['pod_config']['name'])) {
                     $this->pods_config[$pod_data['pod_config']['name']] = $pod_data;
@@ -366,7 +367,7 @@ if (!class_exists('MWC_Pods_Manager')) {
                     unset($data[$key]);
                 }
             }
-            
+
             return $data;
         }
 
@@ -380,7 +381,7 @@ if (!class_exists('MWC_Pods_Manager')) {
          * @param $field
          * @param $id
          * @return mixed
-         * 
+         *
          * @see https://web.archive.org/web/20171124122419/http://hookr.io/plugins/pods-custom-content-types-and-fields/2.5.5/filters/pods_form_ui_field_type_value/
          */
         public function filter_map_point_category_ui_field_value($value, $name, $options, $field, $id): mixed
@@ -588,5 +589,41 @@ if (!class_exists('MWC_Pods_Manager')) {
                 pods_api()->cache_flush_pods();
             }
         }
-   }
+
+        /**
+         * Supprime tous les pods configurés (sans supprimer les données utilisateur)
+         * Les données restent en base et seront ré-associées lors de la réactivation du plugin
+         * @return void
+         */
+        public function delete_all_pods(): void
+        {
+            if (!function_exists('pods_api')) {
+                error_log('MWC_Pods_Manager - API Pods non disponible pour la suppression.');
+                return;
+            }
+
+            $api = pods_api();
+            $deleted_count = 0;
+
+            // On parcourt la configuration pour supprimer chaque pod
+            foreach (array_keys($this->pods_config) as $pod_name) {
+                try {
+                    if ($api->pod_exists($pod_name)) {
+                        // Supprime uniquement la structure du pod, pas les données
+                        $api->delete_pod(['name' => $pod_name]);
+                        $deleted_count++;
+                        error_log("MWC_Pods_Manager - Pod '{$pod_name}' supprimé");
+                    }
+                } catch (Exception $e) {
+                    error_log("MWC_Pods_Manager - Erreur lors de la suppression du pod '{$pod_name}': " . $e->getMessage());
+                }
+            }
+
+            if ($deleted_count > 0) {
+                // Vider le cache des pods après suppression
+                $api->cache_flush_pods();
+                error_log("MWC_Pods_Manager - {$deleted_count} pods supprimés avec succès");
+            }
+        }
+    }
 }
