@@ -50,7 +50,7 @@ return [
         'label_singular' => 'Réseau social',
         'label_add_new_item' => 'Nouveau réseau social',
         'description' => 'Réseaux sociaux de l\'application Multi',
-        'menu_position' => 17,
+        'menu_position' => 18,
         'menu_icon' => 'dashicons-share',
         'wpgraphql_singular_name' => $pod_singular_name,
         'wpgraphql_plural_name' => $pod_name,
