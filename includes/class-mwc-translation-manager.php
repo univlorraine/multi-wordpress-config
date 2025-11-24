@@ -906,14 +906,16 @@ if (!class_exists('MWC_Translation_Manager')) {
          */
         public function repair_translations_after_import(): void {
             $is_admin_context = is_admin() && !wp_doing_ajax();
-            if (!$is_admin_context) {
-                return;
-            }
+            $is_cli_context = defined('WP_CLI') && WP_CLI;
 
             global $wpdb;
 
-            echo "<h2>Vérification des liens de traduction Polylang</h2>";
-            echo "<p>Cette opération va analyser les groupes de traduction basés sur la taxonomie <code>post_translations</code> et recréer tous les liens de traduction Polylang, corrigeant ainsi les liens manquants.</p>";
+            if ($is_admin_context) {
+                echo "<h2>Vérification des liens de traduction Polylang</h2>";
+                echo "<p>Cette opération va analyser les groupes de traduction basés sur la taxonomie <code>post_translations</code> et recréer tous les liens de traduction Polylang, corrigeant ainsi les liens manquants.</p>";
+            } elseif ($is_cli_context) {
+                WP_CLI::log('Vérification des liens de traduction Polylang...');
+            }
 
             // 1. Récupérer tous les groupes de traduction depuis la taxonomie post_translations
             $translation_groups = $wpdb->get_results("
@@ -926,11 +928,19 @@ if (!class_exists('MWC_Translation_Manager')) {
             ");
 
             if (empty($translation_groups)) {
-                echo "<p>❌ Aucun terme post_translations trouvé. Rien à traiter.</p>";
+                if ($is_admin_context) {
+                    echo "<p>❌ Aucun terme post_translations trouvé. Rien à traiter.</p>";
+                } elseif ($is_cli_context) {
+                    WP_CLI::warning('Aucun terme post_translations trouvé.');
+                }
                 return;
             }
 
-            echo "<p>✓ " . count($translation_groups) . " relations de traduction détectées.</p>";
+            if ($is_admin_context) {
+                echo "<p>✓ " . count($translation_groups) . " relations de traduction détectées.</p>";
+            } elseif ($is_cli_context) {
+                WP_CLI::log(sprintf('%d relations de traduction détectées.', count($translation_groups)));
+            }
 
             // 2. Grouper les posts par leur terme de traduction
             $groups = [];
@@ -938,17 +948,25 @@ if (!class_exists('MWC_Translation_Manager')) {
                 $groups[$row->translation_term][] = $row->post_id;
             }
 
-            echo "<p>✓ " . count($groups) . " groupes de traduction détectés.</p>";
+            if ($is_admin_context) {
+                echo "<p>✓ " . count($groups) . " groupes de traduction détectés.</p>";
+            } elseif ($is_cli_context) {
+                WP_CLI::log(sprintf('%d groupes de traduction détectés.', count($groups)));
+            }
 
             // 3. Pour chaque groupe, recréer les liens Polylang
             $fixed_count = 0;
             $errors = [];
 
-            echo "<ul style='font-family: monospace;'>";
+            if ($is_admin_context) {
+                echo "<ul style='font-family: monospace;'>";
+            }
 
             foreach ($groups as $term_name => $post_ids) {
                 if (count($post_ids) < 2) {
-                    echo "<li style='color: gray;'>⊘ Groupe '{$term_name}' ignoré (un seul post)</li>";
+                    if ($is_admin_context) {
+                        echo "<li style='color: gray;'>⊘ Groupe '{$term_name}' ignoré (un seul post)</li>";
+                    }
                     continue;
                 }
 
@@ -972,29 +990,47 @@ if (!class_exists('MWC_Translation_Manager')) {
                 if (count($translations) > 1) {
                     pll_save_post_translations($translations);
                     $fixed_count++;
-                    echo "<li style='color: green;'>✓ Groupe '{$term_name}' traité : " . implode(' ↔ ', $posts_info) . "</li>";
+                    if ($is_admin_context) {
+                        echo "<li style='color: green;'>✓ Groupe '{$term_name}' traité : " . implode(' ↔ ', $posts_info) . "</li>";
+                    } elseif ($is_cli_context) {
+                        WP_CLI::log(sprintf("Groupe '%s' traité : %s", $term_name, implode(' ↔ ', $posts_info)));
+                    }
                 } else {
-                    echo "<li style='color: orange;'>⚠ Groupe '{$term_name}' incomplet (langues manquantes)</li>";
+                    if ($is_admin_context) {
+                        echo "<li style='color: orange;'>⚠ Groupe '{$term_name}' incomplet (langues manquantes)</li>";
+                    } elseif ($is_cli_context) {
+                        WP_CLI::warning(sprintf("Groupe '%s' incomplet (langues manquantes)", $term_name));
+                    }
                 }
             }
 
-            echo "</ul>";
+            if ($is_admin_context) {
+                echo "</ul>";
+            }
 
             // 4. Afficher les erreurs s'il y en a
             if (!empty($errors)) {
-                echo "<h3 style='color: red;'>Erreurs détectées :</h3><ul>";
-                foreach ($errors as $error) {
-                    echo "<li>{$error}</li>";
+                if ($is_admin_context) {
+                    echo "<h3 style='color: red;'>Erreurs détectées :</h3><ul>";
+                    foreach ($errors as $error) {
+                        echo "<li>{$error}</li>";
+                    }
+                    echo "</ul>";
+                } elseif ($is_cli_context) {
+                    WP_CLI::error_multi_line($errors);
                 }
-                echo "</ul>";
             }
 
             // 5. Nettoyer le cache
             wp_cache_flush();
 
-            echo "<h3 style='color: green;'>✓ Traitement terminé !</h3>";
-            echo "<p><strong>{$fixed_count} groupes de traduction</strong> ont été traités.</p>";
-            echo "<p style='color: blue;'>ℹ Le cache a été nettoyé.</p>";
+            if ($is_admin_context) {
+                echo "<h3 style='color: green;'>✓ Traitement terminé !</h3>";
+                echo "<p><strong>{$fixed_count} groupes de traduction</strong> ont été traités.</p>";
+                echo "<p style='color: blue;'>ℹ Le cache a été nettoyé.</p>";
+            } elseif ($is_cli_context) {
+                WP_CLI::success(sprintf('%d groupes de traduction ont été traités. Le cache a été nettoyé.', $fixed_count));
+            }
         }
     }
 }
