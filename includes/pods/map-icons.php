@@ -40,51 +40,78 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-$pod_name = 'positions_by_role';
-$pod_singular_name = 'position_by_role';
+$pod_name = 'map_icons';
+$pod_singular_name = 'map_icon';
 
 return [
     'pod_config' => [
         'name' => $pod_name,
-        'label' => 'Positions par rôle',
-        'label_singular' => 'Position par rôle',
-        'label_add_new_item' => 'Nouvelle position par rôle',
-        'description' => 'Positions par rôle de l\'application Multi.',
-        'menu_position' => 23,
-        'menu_icon' => 'dashicons-sort',
+        'label' => 'Icônes carte',
+        'label_singular' => 'Icône carte',
+        'label_all_items' => 'Icônes carte',
+        'description' => 'Icônes pour les points sur la carte de l\'application Multi',
+        'menu_position' => 102,
+        'menu_icon' => 'dashicons-image-filter',
+        'menu_location_custom' => 'edit.php?post_type=map_points',
+        'show_in_menu' => true,
+        'show_in_admin_bar' => false,
+        'show_in_nav_menus' => false,
         'wpgraphql_singular_name' => $pod_singular_name,
         'wpgraphql_plural_name' => $pod_name,
         'options' => [
             'singleton' => false,
             // Indique quel champ sera utilisé comme titre dans l'interface d'administration (autrement affiche 'brouillon')
-            'title_field' => [$pod_singular_name . '_position', $pod_singular_name . '_role'],
+            'title_field' => $pod_singular_name . '_name',
         ]
     ],
     'pod_fields' => [
         $pod_singular_name . '_fields' => [
-            'label' => 'Champs Position par rôles',
+            'label' => 'Champs Icône carte',
             'fields' => [
-                $pod_singular_name . '_position' => [
+                $pod_singular_name . '_name' => [
+                    'type' => 'text',
+                    'label' => 'Nom',
+                    'description' => 'Nom de l\'icône (pour usage interne)',
+                    'required' => true,
+                ],
+                $pod_singular_name . '_svg' => [
+                    'type' => 'code',
+                    'label' => 'Code SVG de l\'icône',
+                    'description' => 'Code SVG de l\'icône à utiliser pour les points sur la carte',
+                    'required' => true,
+                    'code_max_length' => '-1',
+                    'code_trim' => true,
+                    'code_trim_lines' => true,
+                    'code_trim_p_brs' => false,
+                    'code_trim_extra_lines' => false,
+                    'code_sanitize_html' => false,
+                    'code_allow_shortcode' => false
+                ],
+                $pod_singular_name . '_width' => [
                     'type' => 'number',
-                    'label' => 'Position d\'affichage',
+                    'label' => 'Largeur',
+                    'description' => 'Largeur de l\'icône en pixels',
                     'required' => true,
-                    'description' => 'Ordre pour l\'affichage.',
-                    'number_max_length' => '-1',
                 ],
-                $pod_singular_name . '_role' => [
-                    'type' => 'pick',
-                    'label' => 'Rôle',
+                $pod_singular_name . '_height' => [
+                    'type' => 'number',
+                    'label' => 'Hauteur',
+                    'description' => 'Hauteur de l\'icône en pixels',
                     'required' => true,
-                    'description' => 'Rôle de l\'utilisateur associé à la position.',
-                    'pick_object' => 'post_type',
-                    'pick_val' => 'roles',
-                    'pick_format_type' => 'single',
-                    'pick_format_single' => 'autocomplete',
-                    'pick_display_format_separator' => ', ',
-                    'simple_relationship' => '1',
-                    'pick_display_format_single' => 'name'
                 ],
-            ],
+                $pod_singular_name . '_pos_x' => [
+                    'type' => 'number',
+                    'label' => 'Position X',
+                    'description' => 'Position X du point d\'ancrage de l\'icône',
+                    'required' => true,
+                ],
+                $pod_singular_name . '_pos_y' => [
+                    'type' => 'number',
+                    'label' => 'Position Y',
+                    'description' => 'Position Y du point d\'ancrage de l\'icône',
+                    'required' => true,
+                ],
+            ]
         ]
     ]
 ];
