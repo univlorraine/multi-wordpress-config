@@ -40,41 +40,39 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-$pod_name = 'knowledge_bases';
-$pod_singular_name = 'knowledge_base';
-$pod_field_name = 'information';
+$pod_name = 'knowledge_base';
 
 return [
     'pod_config' => [
         'name' => $pod_name,
-        'label' => 'Informations',
-        'label_singular' => 'Information',
-        'label_add_new_item' => 'Nouvelle information',
+        'label' => 'Base de connaissance',
+        'label_singular' => 'Base de connaissance',
+        'label_add_new_item' => 'Nouvelle ressource',
         'description' => 'Base de connaissance de l\'application Multi',
         'menu_position' => 18,
-        'wpgraphql_singular_name' => $pod_singular_name,
+        'wpgraphql_singular_name' => $pod_name,
         'wpgraphql_plural_name' => $pod_name,
         'options' => [
             'singleton' => false,
-            'title_field' => $pod_field_name. '_title', // Indique quel champ sera utilisé comme titre dans l'interface d'administration (autrement affiche 'brouillon')
+            'title_field' => $pod_name. '_title', // Indique quel champ sera utilisé comme titre dans l'interface d'administration (autrement affiche 'brouillon')
         ]
     ],
     'pod_fields' => [
-        $pod_field_name . '_fields' => [
-            'label' => 'Champs Information',
+        $pod_name . '_fields' => [
+            'label' => 'Champs de la ressource',
             'fields' => [
-                $pod_field_name . '_title' => [
+                $pod_name . '_title' => [
                     'type' => 'text',
                     'label' => 'Titre',
                     'required' => true,
-                    'description' => 'Titre de l\'information',
+                    'description' => 'Titre de la ressource',
                     'is_translatable' => true,
                 ],
-                $pod_field_name . '_content' => [
+                $pod_name . '_content' => [
                     'type' => 'wysiwyg',
                     'label' => 'Contenu',
                     'required' => true,
-                    'description' => 'Contenu de l\'information',
+                    'description' => 'Contenu de la ressource',
                     'wysiwyg_editor' => 'tinymce',
                     'wysiwyg_media_buttons' => '1',
                     'wysiwyg_delay_init' => '0',
@@ -90,11 +88,11 @@ return [
                     'wysiwyg_allow_shortcode' => '0',
                     'is_translatable' => true,
                 ],
-                $pod_field_name . '_type' => [
+                $pod_name . '_type' => [
                     'type' => 'pick',
                     'label' => 'Type',
                     'required' => true,
-                    'description' => 'Quel est le type de l\'information ?',
+                    'description' => 'Quel est le type de la ressource ?',
                     'pick_format_type' => 'single',
                     'pick_format_single' => 'dropdown',
                     'pick_object' => 'custom-simple',
@@ -106,7 +104,7 @@ return [
                     ],
                     'default_value' => 'content',
                 ],
-                $pod_field_name . '_child_display' => [
+                $pod_name . '_child_display' => [
                     'type' => 'pick',
                     'label' => 'Affichage des enfants',
                     'required' => false,
@@ -126,23 +124,23 @@ return [
                         'logic' => 'any',
                         'rules' => [
                             [
-                                'field' => $pod_field_name . '_type',
+                                'field' => $pod_name . '_type',
                                 'compare' => '=',
                                 'value' => 'internal_link'
                             ],
                             [
-                                'field' => $pod_field_name . '_type',
+                                'field' => $pod_name . '_type',
                                 'compare' => '=',
                                 'value' => 'external_link'
                             ]
                         ],
                     ],
                 ],
-                $pod_field_name . '_access_restriction' => [
+                $pod_name . '_access_restriction' => [
                     'type' => 'pick',
                     'label' => 'Accès',
                     'required' => true,
-                    'description' => 'Qui a accès à l\'information ?',
+                    'description' => 'Qui a accès à la ressource ?',
                     'pick_format_type' => 'single',
                     'pick_format_single' => 'dropdown',
                     'pick_object' => 'custom-simple',
@@ -154,11 +152,11 @@ return [
                     ],
                     'default_value' => 'NONE',
                 ],
-                $pod_field_name . '_roles' => [
+                $pod_name . '_roles' => [
                     'type' => 'pick',
                     'label' => 'Rôles',
                     'required' => false,
-                    'description' => 'Rôles autorisés ou interdits d\'accès à l\'information importante.',
+                    'description' => 'Rôles autorisés ou interdits d\'accès à la ressource',
                     'pick_object' => 'post_type',
                     'pick_format_type' => 'multi',
                     'pick_format_multi' => 'autocomplete',
@@ -169,7 +167,7 @@ return [
                         'logic' => 'all',
                         'rules' => [
                             [
-                                'field' => $pod_field_name . '_access_restriction',
+                                'field' => $pod_name . '_access_restriction',
                                 'compare' => '=',
                                 'value' => 'NONE',
                             ]
@@ -177,64 +175,58 @@ return [
                     ],
                     'pick_val' => 'roles',
                 ],
-                $pod_field_name . '_parent' => [
+                $pod_name . '_parent' => [
                     'type' => 'pick',
-                    'label' => 'Identifiant information parent',
+                    'label' => 'Identifiant ressource parent',
                     'required' => false,
-                    'description' => 'Identifiant de la page d\'information parent',
+                    'description' => 'Identifiant de la ressource parent',
                     'pick_object' => 'post_type',
                     'pick_format_type' => 'single',
                     'pick_format_multi' => 'list',
                     'pick_post_type' => ['knowledge_base'],
                     'pick_val' => 'knowledge_base',
                 ],
-                $pod_field_name . '_position' => [
+                $pod_name . '_position' => [
                     'type' => 'number',
                     'label' => 'Ordre d\'affichage',
                     'required' => false,
                     'description' => 'Position lors de l\'affichage.',
                     'default_value' => 0,
                 ],
-                $pod_field_name . '_cover_image' => [
+                $pod_name . '_cover_image' => [
                     'type' => 'file',
                     'label' => 'Image de couverture',
                     'required' => false,
-                    'description' => 'Image de couverture illustrant une information',
+                    'description' => 'Image de couverture illustrant une ressource',
                 ],
-                $pod_field_name . '_link' => [
+                $pod_name . '_link' => [
                     'type' => 'text',
                     'label' => 'Lien',
                     'required' => false,
                     'description' => 'Lien vers une page ou redirection si la page est de type lien externe',
                 ],
-                $pod_field_name . '_phone' => [
+                $pod_name . '_phone' => [
                     'type' => 'phone',
                     'label' => 'Téléphone',
                     'required' => false,
-                    'description' => 'Numéro de téléphone associé à l\'information',
+                    'description' => 'Numéro de téléphone associé à la ressource',
                     'phone_format' => 'international',
                     'phone_max_length' => '25',
                     'phone_enable_phone_extension' => '1'
                 ],
-                $pod_field_name . '_address' => [
+                $pod_name . '_address' => [
                     'type' => 'text',
                     'label' => 'Adresse',
                     'required' => false,
-                    'description' => 'L\'adresse associée à l\'information'
+                    'description' => 'L\'adresse associée à la ressource'
                 ],
-                $pod_field_name . '_email' => [
+                $pod_name . '_email' => [
                     'type' => 'email',
                     'label' => 'Email',
                     'required' => false,
-                    'description' => 'L\'adresse email associée à l\'information'
+                    'description' => 'L\'adresse email associée à la ressource'
                 ],
-                $pod_field_name . '_search_keywords' => [
-                    'type' => 'email',
-                    'label' => 'Email',
-                    'required' => false,
-                    'description' => 'L\'adresse email associée à l\'information'
-                ],
-                $pod_field_name . '_search_keywords' => [
+                $pod_name . '_search_keywords' => [
                     'type' => 'text',
                     'label' => 'Mots clés de recherche',
                     'required' => false,
