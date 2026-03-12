@@ -53,7 +53,7 @@ return [
         'label_singular' => 'Formulaire de contact',
     //    'label_add_new_item' => 'Nouveau formulaire de contact', // Inutile car le pod est un singleton
         'description' => 'Formulaire de contact de l\'application Multi',
-        'menu_position' => 18,
+        'menu_position' => 19,
         'menu_icon' => 'dashicons-email-alt',
         'wpgraphql_singular_name' => 'contact_us_one', // Obligé de nommer le champ mais on ne l'utilise pas car le pod est un singleton
         'wpgraphql_plural_name' => $pod_name,

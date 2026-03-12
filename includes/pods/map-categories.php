@@ -40,51 +40,49 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-$pod_name = 'positions_by_role';
-$pod_singular_name = 'position_by_role';
+$pod_name = 'map_categories';
+$pod_singular_name = 'map_category';
 
 return [
     'pod_config' => [
         'name' => $pod_name,
-        'label' => 'Positions par rôle',
-        'label_singular' => 'Position par rôle',
-        'label_add_new_item' => 'Nouvelle position par rôle',
-        'description' => 'Positions par rôle de l\'application Multi.',
-        'menu_position' => 23,
-        'menu_icon' => 'dashicons-sort',
+        'label' => 'Catégories de points',
+        'label_singular' => 'Catégorie de point',
+        'label_all_items' => 'Catégories de points',
+        'description' => 'Catégories de points sur la carte de l\'application Multi',
+        'menu_position' => 100,
+        'menu_icon' => 'dashicons-category',
+        'menu_location_custom' => 'edit.php?post_type=map_points',
+        'show_in_menu' => true,
+        'show_in_admin_bar' => false,
+        'show_in_nav_menus' => false,
         'wpgraphql_singular_name' => $pod_singular_name,
         'wpgraphql_plural_name' => $pod_name,
         'options' => [
             'singleton' => false,
             // Indique quel champ sera utilisé comme titre dans l'interface d'administration (autrement affiche 'brouillon')
-            'title_field' => [$pod_singular_name . '_position', $pod_singular_name . '_role'],
+            'title_field' => $pod_singular_name . '_internal_name',
         ]
     ],
     'pod_fields' => [
         $pod_singular_name . '_fields' => [
-            'label' => 'Champs Position par rôles',
+            'label' => 'Champs Catégorie de point',
             'fields' => [
-                $pod_singular_name . '_position' => [
-                    'type' => 'number',
-                    'label' => 'Position d\'affichage',
+                $pod_singular_name . '_internal_name' => [
+                    'type' => 'text',
+                    'label' => 'Nom interne',
+                    'description' => 'Nom interne de la catégorie de point (non affiché aux utilisateurs)',
                     'required' => true,
-                    'description' => 'Ordre pour l\'affichage.',
-                    'number_max_length' => '-1',
+                    'is_translatable' => false,
                 ],
-                $pod_singular_name . '_role' => [
-                    'type' => 'pick',
-                    'label' => 'Rôle',
+                $pod_singular_name . '_name' => [
+                    'type' => 'text',
+                    'label' => 'Nom',
+                    'description' => 'Nom de la catégorie de point',
                     'required' => true,
-                    'description' => 'Rôle de l\'utilisateur associé à la position.',
-                    'pick_object' => 'post_type',
-                    'pick_val' => 'roles',
-                    'pick_format_type' => 'single',
-                    'pick_format_single' => 'autocomplete',
-                    'pick_display_format_separator' => ', ',
-                    'simple_relationship' => '1',
-                    'pick_display_format_single' => 'name'
+                    'is_translatable' => true,
                 ],
-            ],
+            ]
         ]
     ]
 ];

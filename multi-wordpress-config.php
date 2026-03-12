@@ -3,7 +3,7 @@
  * Plugin Name: Multi Wordpress Config
  * Plugin URI: https://github.com/univlorraine/multi-wordpress-config
  * Description: Plugin permettant de personnaliser l'administration WordPress pour une utilisation Headless
- * Version: 0.3.5
+ * Version: 0.3.6
  * Author: Benjamin Lemoine
  * Author URI: https://github.com/benjhoo
  * License: CeCILL-2.1
@@ -167,10 +167,16 @@ class Multi_Wordpress_Config {
      * Fonctions initiées lors de la désactivation du plugin
      */
     public static function deactivate(): void {
-        $instance = new self();
+        // Restaurer les types de contenu WordPress par défaut
+        require_once plugin_dir_path(__FILE__) . 'includes/class-mwc-disable-defaults.php';
+        $disable_defaults = new MWC_Disable_Defaults();
+        $disable_defaults->restore_core_types();
 
-        if ($instance->disable_defaults) {
-            $instance->disable_defaults->restore_core_types();
+        // Supprimer les pods (structure uniquement, les données sont préservées)
+        if (function_exists('pods_api')) {
+            require_once plugin_dir_path(__FILE__) . 'includes/class-mwc-pods-manager.php';
+            $pods_manager = new MWC_Pods_Manager();
+            $pods_manager->delete_all_pods();
         }
 
         flush_rewrite_rules();
