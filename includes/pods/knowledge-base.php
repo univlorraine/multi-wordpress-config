@@ -50,8 +50,9 @@ return [
         'label_add_new_item' => 'Nouvelle ressource',
         'description' => 'Base de connaissance de l\'application Multi',
         'menu_position' => 18,
-        'wpgraphql_singular_name' => $pod_name,
-        'wpgraphql_plural_name' => $pod_name,
+        'menu_icon' => 'dashicons-welcome-learn-more',
+        'wpgraphql_singular_name' => 'knowledge_base_resource',
+        'wpgraphql_plural_name' => 'knowledge_base_resources',
         'options' => [
             'singleton' => false,
             'title_field' => $pod_name. '_title', // Indique quel champ sera utilisé comme titre dans l'interface d'administration (autrement affiche 'brouillon')
@@ -117,7 +118,6 @@ return [
                         'card' => 'Carte',
                         'list' => 'Lien Liste'
                     ],
-                    'default_value' => 'content',
                     'enable_conditional_logic' => '1',
                     'conditional_logic' => [
                         'action' => 'hide',
@@ -217,9 +217,9 @@ return [
                         ],
                     ],
                 ],
-                $pod_name . '_url_link' => [
-                    'type' => 'text',
-                    'label' => 'Lien',
+                $pod_name . '_link_url' => [
+                    'type' => 'website',
+                    'label' => 'URL service externe',
                     'required' => false,
                     'description' => 'Lien http vers un lien externe. Si authentification CAS requise, ajouter {st} pour le ticket.',
                     'enable_conditional_logic' => '1',
@@ -236,8 +236,8 @@ return [
                     ],
                 ],
                 $pod_name . '_sso_service' => [
-                    'type' => 'text',
-                    'label' => 'Lien',
+                    'type' => 'website',
+                    'label' => 'URL Service SSO',
                     'required' => false,
                     'description' => 'Lien vers la validation du ticket SSO.',
                     'enable_conditional_logic' => '1',
