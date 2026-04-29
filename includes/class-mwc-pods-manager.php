@@ -119,27 +119,12 @@ if (!class_exists('MWC_Pods_Manager')) {
         }
 
         /**
-         * Crée les pods pré-configurés en base au moment de l'activation du plugin
-         * @return void
+         * Paramètres par défaut appliqués à tous les pods lors de leur création
+         * @return array
          */
-        public function create_default_pods(): void
+        private function get_default_pod_args(): array
         {
-            if (!function_exists('pods_api')) {
-                error_log('API Pods non disponible.');
-                return;
-            }
-
-            $api = pods_api();
-
-            // On récupère la liste des pods manquants
-            $missing_pods = $this->check_missing_pods();
-
-            if (empty($missing_pods)) {
-                return; // Tous les pods sont déjà installés
-            }
-
-            // Paramètres par défaut pour tous les pods
-            $default_pod_args = [
+            return [
                 'storage' => 'meta',                // Type de stockage des données (meta, table, etc.)
                 'type' => 'post_type',              // Type de contenu (post_type, taxonomy, user, media, etc.)
 
@@ -182,76 +167,190 @@ if (!class_exists('MWC_Pods_Manager')) {
                 // Autres paramètres
                 'delete_with_user' => false,        // false pour préserver les données
             ];
+        }
 
-            // Pour chaque config de pod présente dans le dossier pods/
-            foreach ($this->pods_config as $pod_name => $pod_data) {
-                try {
-                    // Si le pod est déjà créé, on passe au suivant
-                    if (!in_array($pod_name, $missing_pods)) {
-                        continue;
-                    }
+        /**
+         * Crée un pod complet (structure + groupes + champs) depuis sa configuration
+         * @param $api
+         * @param string $pod_name
+         * @param array $pod_data
+         * @return void
+         */
+        private function create_single_pod($api, string $pod_name, array $pod_data): void
+        {
+            try {
+                if (!isset($pod_data['pod_config']) || !isset($pod_data['pod_fields'])) {
+                    error_log('MWC_Pods_Manager - Configuration de pod invalide: structure incorrecte');
+                    return;
+                }
 
-                    // Vérifier que les sections requises sont présentes
-                    if (!isset($pod_data['pod_config']) || !isset($pod_data['pod_fields'])) {
-                        error_log('Configuration de pod invalide: structure incorrecte');
-                        continue;
-                    }
+                $pod_args = array_merge($this->get_default_pod_args(), $pod_data['pod_config']);
+                $pod_args['name'] = $pod_name;
+                $pod_args['rest_base'] = $pod_name;
 
-                    // On fusionne les paramètres par défaut avec la config du pod
-                    $pod_args = array_merge($default_pod_args, $pod_data['pod_config']);
+                $pod_id = $api->save_pod($pod_args);
 
-                    // On renseigne le nom du pod
-                    $pod_args['name'] = $pod_name;
-                    $pod_args['rest_base'] = $pod_name;
+                if ($pod_id && !empty($pod_data['pod_fields'])) {
+                    pods_api()->cache_flush_pods();
 
-                    // On crée le pod
-                    $pod_id = $api->save_pod($pod_args);
+                    foreach ($pod_data['pod_fields'] as $group_name => $group_config) {
+                        $api->save_group([
+                            'pod' => $pod_name,
+                            'name' => $group_name,
+                            'label' => $group_config['label']
+                        ]);
 
-                    // Si le pod a été créé, on crée les groupes et champs
-                    if ($pod_id && !empty($pod_data['pod_fields'])) {
-                        pods_api()->cache_flush_pods();
+                        if (isset($group_config['fields']) && is_array($group_config['fields'])) {
+                            foreach ($group_config['fields'] as $field_name => $field_config) {
+                                $field_args = array_merge([
+                                    'pod' => $pod_name,
+                                    'name' => $field_name,
+                                    'group' => $group_name,
+                                    'show_in_graphql' => true,
+                                    'wpgraphql_enabled' => true
+                                ], $field_config);
 
-                        foreach ($pod_data['pod_fields'] as $group_name => $group_config) {
-                            // Paramètres du groupe
-                            $group_args = [
-                                'pod' => $pod_name,
-                                'name' => $group_name,
-                                'label' => $group_config['label']
-                            ];
-
-                            $api->save_group($group_args);
-
-                            // On crée les champs
-                            if (isset($group_config['fields']) && is_array($group_config['fields'])) {
-                                foreach ($group_config['fields'] as $field_name => $field_config) {
-
-                                    $default_field_args = [
-                                        'pod' => $pod_name,
-                                        'name' => $field_name,
-                                        'group' => $group_name,
-                                        'show_in_graphql' => true,
-                                        'wpgraphql_enabled' => true
-                                    ];
-
-                                    // On fusionne les paramètres par défaut avec la config du champ
-                                    $field_args = array_merge($default_field_args, $field_config);
-
-                                    try {
-                                        // On crée le champ
-                                        $api->save_field($field_args);
-                                    } catch (Exception $e) {
-                                        error_log('MWC Debug - Erreur création champ : ' . $e->getMessage());
-                                    }
+                                try {
+                                    $api->save_field($field_args);
+                                } catch (Exception $e) {
+                                    error_log('MWC_Pods_Manager - Erreur création champ : ' . $e->getMessage());
                                 }
                             }
                         }
                     }
-                } catch (Exception $e) {
-                    error_log('MWC Debug - Erreur lors de la création du pod : ' . $e->getMessage());
+                }
+            } catch (Exception $e) {
+                error_log('MWC_Pods_Manager - Erreur lors de la création du pod : ' . $e->getMessage());
+            }
+        }
+
+        /**
+         * Crée les pods pré-configurés en base au moment de l'activation du plugin
+         * @return void
+         */
+        public function create_default_pods(): void
+        {
+            if (!function_exists('pods_api')) {
+                error_log('API Pods non disponible.');
+                return;
+            }
+
+            $api = pods_api();
+            $missing_pods = $this->check_missing_pods();
+
+            if (empty($missing_pods)) {
+                return;
+            }
+
+            foreach ($this->pods_config as $pod_name => $pod_data) {
+                if (!in_array($pod_name, $missing_pods)) {
+                    continue;
+                }
+                $this->create_single_pod($api, $pod_name, $pod_data);
+            }
+
+            pods_api()->cache_flush_pods();
+        }
+
+        /**
+         * Synchronise les structures de pods lors d'une mise à jour du plugin.
+         * - Crée les pods entièrement absents
+         * - Ajoute les groupes/champs manquants aux pods existants
+         * - Ne modifie ni ne supprime jamais les données ou customisations existantes
+         * @return void
+         */
+        public function sync_pods(): void
+        {
+            if (!function_exists('pods_api')) {
+                error_log('MWC_Pods_Manager - API Pods non disponible pour la synchronisation.');
+                return;
+            }
+
+            $api = pods_api();
+            $had_new_pods = false;
+
+            foreach ($this->pods_config as $pod_name => $pod_data) {
+                if (!$api->pod_exists($pod_name)) {
+                    $this->create_single_pod($api, $pod_name, $pod_data);
+                    $had_new_pods = true;
+                    error_log("MWC_Pods_Manager - Pod '{$pod_name}' créé lors de la mise à jour du plugin");
+                } else {
+                    $this->sync_pod_fields($api, $pod_name, $pod_data);
                 }
             }
 
             pods_api()->cache_flush_pods();
+
+            // Si de nouveaux pods ont été créés, on reconstruit les relations depuis wp_postmeta
+            if ($had_new_pods) {
+                $this->rebuild_pods_relations_after_import();
+            }
+        }
+
+        /**
+         * Ajoute aux pods existants les groupes et champs présents dans la config mais absents du pod.
+         * Ne touche pas aux groupes/champs déjà existants (respect des customisations utilisateur).
+         * @param $api
+         * @param string $pod_name
+         * @param array $pod_data
+         * @return void
+         */
+        private function sync_pod_fields($api, string $pod_name, array $pod_data): void
+        {
+            if (!isset($pod_data['pod_fields'])) {
+                return;
+            }
+
+            // Champs existants du pod (index par nom)
+            $existing_fields = $api->load_fields(['pod' => $pod_name]);
+            $existing_field_names = array_column(array_values($existing_fields), 'name');
+
+            // Groupes existants du pod
+            $pod_obj = $api->load_pod(['name' => $pod_name]);
+            $existing_group_names = [];
+            if (!empty($pod_obj['groups'])) {
+                foreach ($pod_obj['groups'] as $group) {
+                    $existing_group_names[] = $group['name'];
+                }
+            }
+
+            foreach ($pod_data['pod_fields'] as $group_name => $group_config) {
+                // Créer le groupe s'il n'existe pas encore
+                if (!in_array($group_name, $existing_group_names)) {
+                    $api->save_group([
+                        'pod' => $pod_name,
+                        'name' => $group_name,
+                        'label' => $group_config['label']
+                    ]);
+                    error_log("MWC_Pods_Manager - Groupe '{$group_name}' ajouté au pod '{$pod_name}'");
+                }
+
+                if (!isset($group_config['fields']) || !is_array($group_config['fields'])) {
+                    continue;
+                }
+
+                foreach ($group_config['fields'] as $field_name => $field_config) {
+                    // Champ déjà présent → on respecte la customisation existante
+                    if (in_array($field_name, $existing_field_names)) {
+                        continue;
+                    }
+
+                    $field_args = array_merge([
+                        'pod' => $pod_name,
+                        'name' => $field_name,
+                        'group' => $group_name,
+                        'show_in_graphql' => true,
+                        'wpgraphql_enabled' => true
+                    ], $field_config);
+
+                    try {
+                        $api->save_field($field_args);
+                        error_log("MWC_Pods_Manager - Champ '{$field_name}' ajouté au pod '{$pod_name}'");
+                    } catch (Exception $e) {
+                        error_log("MWC_Pods_Manager - Erreur ajout champ '{$field_name}' sur '{$pod_name}': " . $e->getMessage());
+                    }
+                }
+            }
         }
 
         /**
