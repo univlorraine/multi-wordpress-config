@@ -53,6 +53,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+define('MWC_PLUGIN_VERSION', '0.3.7');
+
 // Inclure Plugin Update Checker
 require_once dirname(__FILE__) . '/plugin-update-checker/plugin-update-checker.php';
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
@@ -147,6 +149,17 @@ class Multi_Wordpress_Config {
     }
 
     /**
+     * Synchronise les structures de pods lors d'une mise à jour du plugin.
+     *  Délègue au pods_manager (qui ne touche pas aux customisations existantes).
+     */
+    public function sync_structures(): void
+    {
+        if ($this->pods_manager) {
+            $this->pods_manager->sync_pods();
+        }
+    }
+
+    /**
      * Fonctions initiées lors de l'activation du plugin
      */
     public static function activate(): void {
@@ -158,8 +171,10 @@ class Multi_Wordpress_Config {
 
         if ($instance->pods_manager) {
             $instance->pods_manager->create_default_pods();
+            $instance->pods_manager->rebuild_pods_relations_after_import();
         }
 
+        update_option('mwc_plugin_version', MWC_PLUGIN_VERSION);
         flush_rewrite_rules();
     }
 
@@ -183,9 +198,22 @@ class Multi_Wordpress_Config {
     }
 }
 
-// Instanciation automatique au chargement du plugin
+// Instanciation automatique au chargement du plugin + détection de mise à jour
 add_action('plugins_loaded', function() {
-    new Multi_Wordpress_Config();
+    $plugin = new Multi_Wordpress_Config();
+
+    $stored_version = get_option('mwc_plugin_version', '0.0.0');
+    if (version_compare($stored_version, MWC_PLUGIN_VERSION, '<')) {
+        add_action('init', function() use ($plugin) {
+            $plugin->sync_structures();
+            update_option('mwc_plugin_version', MWC_PLUGIN_VERSION);
+        }, 20);
+    }
+});
+
+// Augmente la limite de résultats des requêtes WPGraphQL
+add_filter('graphql_connection_max_query_amount', function() {
+    return 500;
 });
 
 // Déclaration des hooks d’activation et de désactivation
