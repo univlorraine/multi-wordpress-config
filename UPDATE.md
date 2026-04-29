@@ -14,7 +14,12 @@ Pour procéder à une montée de version de ce plugin, il est nécessaire d'effe
  */
 ```
 
-### 2. Mettre à jour le fichier `readme.txt` :
+### 2. Ainsi qu'au niveau de la constante `MWC_PLUGIN_VERSION` dans le même fichier :
+```
+define('MWC_PLUGIN_VERSION', 'x.y.z');
+```
+
+### 3. Mettre à jour le fichier `readme.txt` :
 * Changer la ligne `Stable tag:` pour qu'il corresponde à la nouvelle version
 * Ajouter les nouvelles fonctionnalités dans la section `== Changelog ==` :
 ```
@@ -29,20 +34,20 @@ Pour procéder à une montée de version de ce plugin, il est nécessaire d'effe
 ...
 ```
 
-### 3. Pousser les changements sur GitHub :
+### 4. Pousser les changements sur GitHub :
 ```
 git add .
 git commit -m "Version x.y.z"
 git push origin main
 ```
 
-### 4. Créer un tag GIT pour la nouvelle version :
+### 5. Créer un tag GIT pour la nouvelle version :
 ```
 git tag x.y.z
 git push origin x.y.z
 ```
 
-### 5. Créer une nouvelle release sur GitHub :
+### 6. Créer une nouvelle release sur GitHub :
 * Allez sur la page des releases de votre dépôt GitHub
 * Cliquez sur "Draft a new release"
 * Sélectionnez le tag que vous venez de créer
