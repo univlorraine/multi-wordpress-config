@@ -13,6 +13,9 @@ Plugin permettant de personnaliser l'administration WordPress pour une utilisati
 Plugin permettant de personnaliser l'administration WordPress pour une utilisation Headless. Développé par l'Université de Lorraine pour l'application ESUP-MULTI.
 
 == Changelog ==
+= 0.3.8 =
+* Ajout du nouveau pod pour la gestion de la base de connaissance depuis Wordpress
+
 = 0.3.7 =
 * Modification des champs Campus et Icône pour le POD map-points, passés à optionnels
 
